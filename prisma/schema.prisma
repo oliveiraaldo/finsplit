@@ -98,6 +98,7 @@ model GroupMember {
   id         String   @id @default(cuid())
   role       MemberRole @default(MEMBER)
   permission MemberPermission @default(VIEW_ONLY)
+  paymentPercentage Float @default(0) // Porcentagem que este membro paga das despesas (0-100)
   joinedAt   DateTime @default(now())
   
   // Relacionamentos

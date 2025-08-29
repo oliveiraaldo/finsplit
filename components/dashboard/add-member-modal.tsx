@@ -28,7 +28,8 @@ export function AddMemberModal({
     email: '',
     phone: '',
     role: 'MEMBER',
-    permission: 'VIEW_ONLY'
+    permission: 'VIEW_ONLY',
+    paymentPercentage: 50 // Valor padrão
   })
 
   const handleSave = async () => {
@@ -43,6 +44,11 @@ export function AddMemberModal({
       return
     }
 
+    if (formData.paymentPercentage < 0 || formData.paymentPercentage > 100) {
+      toast.error('Porcentagem deve estar entre 0 e 100%')
+      return
+    }
+
     setIsLoading(true)
     try {
       const dataToSend = {
@@ -50,7 +56,8 @@ export function AddMemberModal({
         email: formData.email.trim() || null,
         phone: formData.phone.trim() || null,
         role: formData.role,
-        permission: formData.permission
+        permission: formData.permission,
+        paymentPercentage: formData.paymentPercentage
       }
 
       console.log('👥 Adicionando membro:', dataToSend)
@@ -76,7 +83,8 @@ export function AddMemberModal({
           email: '',
           phone: '',
           role: 'MEMBER',
-          permission: 'VIEW_ONLY'
+          permission: 'VIEW_ONLY',
+          paymentPercentage: 50
         })
         toast.success('Membro adicionado com sucesso!')
       } else {
@@ -177,6 +185,25 @@ export function AddMemberModal({
             </Select>
             <p className="text-xs text-gray-500">
               Define o que o membro pode fazer com as despesas do grupo
+            </p>
+          </div>
+
+          {/* Porcentagem de Pagamento */}
+          <div className="space-y-2">
+            <Label htmlFor="paymentPercentage">Porcentagem de Pagamento (%)</Label>
+            <Input
+              id="paymentPercentage"
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={formData.paymentPercentage}
+              onChange={(e) => setFormData({ ...formData, paymentPercentage: parseFloat(e.target.value) || 0 })}
+              disabled={isLoading}
+              placeholder="Ex: 50"
+            />
+            <p className="text-xs text-gray-500">
+              Quanto % das despesas este membro pagará (0-100%)
             </p>
           </div>
 

@@ -39,6 +39,14 @@ export async function POST(
       )
     }
 
+    // Validar porcentagem de pagamento
+    if (typeof body.paymentPercentage !== 'number' || body.paymentPercentage < 0 || body.paymentPercentage > 100) {
+      return NextResponse.json(
+        { message: 'Porcentagem de pagamento deve estar entre 0 e 100%' },
+        { status: 400 }
+      )
+    }
+
     // Verificar se o grupo existe e pertence ao tenant
     const existingGroup = await prisma.group.findFirst({
       where: {
@@ -106,7 +114,8 @@ export async function POST(
         userId: user.id,
         groupId: groupId,
         role: body.role || 'MEMBER',
-        permission: body.permission || 'VIEW_ONLY'
+        permission: body.permission || 'VIEW_ONLY',
+        paymentPercentage: body.paymentPercentage
       },
       include: {
         user: {
