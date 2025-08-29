@@ -85,6 +85,7 @@ export default function ExpensesPage() {
   }, [searchTerm, statusFilter, expenses])
 
   const handleViewExpense = async (expenseId: string) => {
+    console.log('🔍 Visualizando despesa:', expenseId)
     try {
       const response = await fetch(`/api/expenses/${expenseId}`)
       if (response.ok) {
@@ -95,11 +96,13 @@ export default function ExpensesPage() {
         toast.error('Erro ao carregar dados da despesa')
       }
     } catch (error) {
+      console.error('Erro:', error)
       toast.error('Erro ao carregar dados da despesa')
     }
   }
 
   const handleEditExpense = async (expenseId: string) => {
+    console.log('✏️ Editando despesa:', expenseId)
     try {
       const response = await fetch(`/api/expenses/${expenseId}`)
       if (response.ok) {
@@ -110,6 +113,7 @@ export default function ExpensesPage() {
         toast.error('Erro ao carregar dados da despesa')
       }
     } catch (error) {
+      console.error('Erro:', error)
       toast.error('Erro ao carregar dados da despesa')
     }
   }
@@ -202,22 +206,10 @@ export default function ExpensesPage() {
             {[...Array(5)].map((_, i) => (
               <div key={i} className="h-20 bg-gray-200 rounded animate-pulse"></div>
             ))}
-                  </div>
-
-        {/* Modal de Despesa */}
-        <ExpenseModal
-          expense={selectedExpense}
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false)
-            setSelectedExpense(null)
-          }}
-          onUpdate={handleUpdateExpense}
-          onDelete={handleDeleteExpense}
-        />
-      </div>
-    </DashboardLayout>
-  )
+          </div>
+        </div>
+      </DashboardLayout>
+    )
 }
 
   return (
@@ -419,6 +411,18 @@ export default function ExpensesPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de Despesa */}
+      <ExpenseModal
+        expense={selectedExpense}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setSelectedExpense(null)
+        }}
+        onUpdate={handleUpdateExpense}
+        onDelete={handleDeleteExpense}
+      />
     </DashboardLayout>
   )
 } 
