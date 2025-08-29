@@ -26,6 +26,9 @@ export function DashboardStats() {
         const response = await fetch('/api/dashboard/stats')
         if (response.ok) {
           const data = await response.json()
+          console.log('📊 Dados recebidos da API:', data)
+          console.log('📊 Tipo de monthlySpending:', typeof data.monthlySpending)
+          console.log('📊 Valor de monthlySpending:', data.monthlySpending)
           setStats(data)
         } else {
           console.error('Erro ao buscar estatísticas:', response.statusText)
@@ -62,28 +65,28 @@ export function DashboardStats() {
   const statCards = [
     {
       title: 'Total de Grupos',
-      value: stats.totalGroups,
+      value: Number(stats.totalGroups || 0),
       icon: Users,
       color: 'text-blue-600',
       bgColor: 'bg-blue-100'
     },
     {
       title: 'Total de Despesas',
-      value: stats.totalExpenses,
+      value: Number(stats.totalExpenses || 0),
       icon: Receipt,
       color: 'text-green-600',
       bgColor: 'bg-green-100'
     },
     {
       title: 'Total de Membros',
-      value: stats.totalMembers,
+      value: Number(stats.totalMembers || 0),
       icon: Users,
       color: 'text-purple-600',
       bgColor: 'bg-purple-100'
     },
     {
       title: 'Gastos do Mês',
-      value: `R$ ${stats.monthlySpending.toFixed(2)}`,
+      value: `R$ ${Number(stats.monthlySpending || 0).toFixed(2)}`,
       icon: TrendingUp,
       color: 'text-orange-600',
       bgColor: 'bg-orange-100'

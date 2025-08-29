@@ -55,12 +55,20 @@ export async function GET(request: NextRequest) {
       })
     ])
 
+    console.log('🔍 Dados brutos do Prisma:')
+    console.log('  - totalGroups:', totalGroups, typeof totalGroups)
+    console.log('  - totalExpenses:', totalExpenses, typeof totalExpenses)
+    console.log('  - totalMembers:', totalMembers, typeof totalMembers)
+    console.log('  - monthlySpending._sum.amount:', monthlySpending._sum.amount, typeof monthlySpending._sum.amount)
+
     const stats = {
-      totalGroups,
-      totalExpenses,
-      totalMembers,
-      monthlySpending: monthlySpending._sum.amount || 0
+      totalGroups: Number(totalGroups || 0),
+      totalExpenses: Number(totalExpenses || 0),
+      totalMembers: Number(totalMembers || 0),
+      monthlySpending: Number(monthlySpending._sum.amount || 0)
     }
+
+    console.log('📊 Estatísticas calculadas:', stats)
 
     return NextResponse.json(stats)
 

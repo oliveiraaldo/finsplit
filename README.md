@@ -1,199 +1,157 @@
-# FinSplit - Sistema de Controle de Despesas em Grupo
+# 🚀 FinSplit - Sistema de Divisão de Despesas
 
-Um SaaS completo para divisão e controle de despesas com integração WhatsApp, inteligência artificial e planos Free/Premium.
+**MVP SaaS completo** para controle e divisão de despesas com integração WhatsApp + IA.
 
-## 🚀 Funcionalidades
+## ✨ Funcionalidades
 
-- **Grupos de Despesas**: Crie grupos para viagens, casa, trabalho ou qualquer ocasião
-- **Controle Automático**: Saldos calculados automaticamente para cada membro
-- **Integração WhatsApp**: Envie recibos pelo WhatsApp e confirme despesas
-- **Inteligência Artificial**: IA extrai dados dos recibos automaticamente
-- **Relatórios e Gráficos**: Visualize gastos e tendências com gráficos interativos
-- **Planos Flexíveis**: Comece grátis e evolua conforme suas necessidades
+- 📱 **WhatsApp Integration** via Twilio
+- 🤖 **AI Receipt Extraction** via OpenAI GPT-4o
+- 👥 **Group Management** com membros e despesas
+- 📊 **Real-time Dashboard** com gráficos
+- 💰 **Balance Calculation** automático
+- 📤 **Export Reports** (CSV, PDF, Excel)
+- 🔐 **JWT Authentication** com NextAuth
+- 📈 **Admin Panel** completo
 
 ## 🏗️ Arquitetura
 
-- **Frontend + API**: Next.js 14 (App Router) monolito
-- **Banco de dados**: PostgreSQL
-- **ORM**: Prisma
-- **Autenticação**: NextAuth.js (JWT)
-- **Mensageria**: Twilio WhatsApp
-- **IA**: OpenAI GPT-4 Vision
-- **Pagamentos**: Mercado Pago
+- **Frontend + API**: Next.js 14 (App Router)
+- **Database**: PostgreSQL + Prisma ORM
+- **Authentication**: NextAuth.js (JWT)
+- **Messaging**: Twilio WhatsApp
+- **AI**: OpenAI GPT-4o Vision
+- **Styling**: Tailwind CSS
 
-## 📋 Pré-requisitos
+## 🚀 Deploy Rápido
 
-- Node.js 18+ 
-- PostgreSQL
-- Conta no Twilio (WhatsApp)
-- Conta na OpenAI
-- Conta no Mercado Pago
+### 1. **Vercel (Recomendado)**
 
-## 🛠️ Instalação
-
-1. **Clone o repositório**
 ```bash
-git clone <url-do-repositorio>
-cd finsplit
+# Instalar Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel --prod
 ```
 
-2. **Instale as dependências**
+### 2. **Railway**
+
 ```bash
-npm install
+# Conectar repositório
+# Railway detecta Next.js automaticamente
 ```
 
-3. **Configure as variáveis de ambiente**
+### 3. **Netlify**
+
 ```bash
-cp env.example .env.local
+# Build command
+npm run build
+
+# Publish directory
+.next
 ```
 
-Edite o arquivo `.env.local` com suas credenciais:
-```env
-# Database
-DATABASE_URL="postgresql://postgres:password@localhost:5432/finsplit"
+## 🗄️ Database Setup
 
-# NextAuth
-NEXTAUTH_SECRET="sua-chave-secreta-aqui"
-NEXTAUTH_URL="http://localhost:3000"
+### **Opções de Banco:**
 
-# OpenAI
-OPENAI_API_KEY="sua-chave-openai-aqui"
+1. **Supabase** (Recomendado)
+2. **Neon**
+3. **PlanetScale**
+4. **Railway PostgreSQL**
 
-# Twilio
-TWILIO_ACCOUNT_SID="seu-account-sid-aqui"
-TWILIO_AUTH_TOKEN="seu-auth-token-aqui"
-TWILIO_PHONE_NUMBER="whatsapp:+14155238886"
+### **Setup do Banco:**
 
-# Mercado Pago
-MERCADOPAGO_ACCESS_TOKEN="seu-access-token-aqui"
-MERCADOPAGO_WEBHOOK_SECRET="seu-webhook-secret-aqui"
-
-# JWT
-JWT_SECRET="sua-chave-jwt-aqui"
-```
-
-4. **Configure o banco de dados**
 ```bash
-# Gere o cliente Prisma
-npm run db:generate
+# 1. Criar banco PostgreSQL
+# 2. Configurar DATABASE_URL no .env
+# 3. Executar migrations
 
-# Execute as migrações
-npm run db:migrate
-
-# Ou apenas sincronize o schema (desenvolvimento)
-npm run db:push
+npx prisma migrate deploy
+npx prisma generate
+npx prisma db seed
 ```
 
-5. **Execute o projeto**
+## 🔧 Configuração
+
+### **1. Variáveis de Ambiente:**
+
 ```bash
-npm run dev
+# Copiar exemplo
+cp env.production.example .env.production
+
+# Configurar com seus valores
 ```
 
-O projeto estará disponível em `http://localhost:3000`
+### **2. Serviços Externos:**
 
-## 🗄️ Estrutura do Banco de Dados
+- **Twilio**: WhatsApp Business API
+- **OpenAI**: GPT-4o Vision API
+- **Mercado Pago**: Pagamentos (futuro)
 
-O sistema utiliza as seguintes tabelas principais:
+### **3. Webhooks:**
 
-- **users**: Usuários do sistema
-- **tenants**: Organizações/empresas
-- **groups**: Grupos de despesas
-- **expenses**: Despesas registradas
-- **payments**: Pagamentos realizados
-- **categories**: Categorias de despesas
-- **audit_logs**: Log de auditoria
+```bash
+# Twilio WhatsApp Webhook
+https://seu-dominio.com/api/webhooks/twilio
 
-## 🔌 Integrações
+# Mercado Pago Webhook (futuro)
+https://seu-dominio.com/api/webhooks/mercadopago
+```
 
-### Twilio WhatsApp
-- Webhook para receber mensagens
-- Processamento de mídia (recibos)
-- Respostas automáticas
+## 📱 WhatsApp Setup
 
-### OpenAI
-- Extração de dados de recibos
-- Análise de imagens com GPT-4 Vision
-- Validação de dados extraídos
+### **1. Twilio Sandbox:**
+- Juntar ao sandbox: `join <palavra>`
+- Configurar webhook URL
+- Testar envio de recibos
 
-### Mercado Pago
-- Assinaturas recorrentes
-- Webhooks para atualizações
-- Controle de planos
+### **2. Produção:**
+- Solicitar número WhatsApp Business
+- Configurar webhook de produção
+- Testar integração completa
 
-## 📱 Uso do WhatsApp
+## 🎯 Próximos Passos
 
-1. **Envie uma foto do recibo** para o número configurado
-2. **A IA extrai automaticamente** os dados (valor, descrição, data)
-3. **Confirme ou rejeite** respondendo "sim" ou "não"
-4. **A despesa é registrada** na planilha do grupo
+### **Fase 1 (Atual):**
+- ✅ MVP básico funcionando
+- ✅ WhatsApp + OpenAI integrados
+- ✅ Dashboard funcional
 
-## 💰 Planos e Preços
+### **Fase 2 (Próxima):**
+- 💳 **Mercado Pago** integrado
+- 📧 **Email notifications**
+- 📊 **Charts avançados**
+- 🔒 **Planos Free/Premium**
 
-### Free
-- 1 grupo ativo
-- Até 5 membros
-- Exportação CSV
-- Dashboard básico
+### **Fase 3 (Futuro):**
+- 📱 **Mobile App**
+- 🔄 **Sync automático**
+- 🌍 **Multi-idioma**
+- 📈 **Analytics avançados**
 
-### Premium (R$ 29,90/mês)
-- Grupos ilimitados
-- Membros ilimitados
-- WhatsApp + IA
-- Exportação PDF/Excel
-- Gráficos avançados
+## 🚀 Comandos de Deploy
 
-## 🚀 Deploy
+```bash
+# Build para produção
+npm run build
 
-### Vercel (Recomendado)
-1. Conecte seu repositório ao Vercel
-2. Configure as variáveis de ambiente
-3. Deploy automático a cada push
+# Start produção
+npm start
 
-### Outras plataformas
-- Netlify
-- Railway
-- Heroku
+# Deploy Vercel
+vercel --prod
 
-## 🔒 Segurança
+# Deploy Railway
+railway up
+```
 
-- Autenticação JWT com cookies httpOnly
-- Row Level Security (RLS) no PostgreSQL
-- Auditoria completa de todas as operações
-- Validação de entrada em todas as APIs
+## 📞 Suporte
 
-## 📊 Monitoramento
-
-- Logs de auditoria para todas as ações
-- Métricas de uso (IA, WhatsApp, exportações)
-- Relatórios de consumo por tenant
-
-## 🤝 Contribuição
-
-1. Fork o projeto
-2. Crie uma branch para sua feature
-3. Commit suas mudanças
-4. Push para a branch
-5. Abra um Pull Request
-
-## 📄 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
-
-## 🆘 Suporte
-
-- **Documentação**: [docs.finsplit.com](https://docs.finsplit.com)
 - **Email**: suporte@finsplit.com
-- **WhatsApp**: +55 11 99999-9999
-
-## 🔮 Roadmap
-
-- [ ] App mobile nativo
-- [ ] Integração com bancos
-- [ ] Notificações push
-- [ ] API pública
-- [ ] Marketplace de integrações
-- [ ] Múltiplos idiomas
+- **WhatsApp**: +55 (38) 99727-9959
+- **Documentação**: [docs.finsplit.com](https://docs.finsplit.com)
 
 ---
 
-**FinSplit** - Simplificando o controle de despesas em grupo 🚀 
+**🎉 FinSplit - Simplificando suas finanças!** 
