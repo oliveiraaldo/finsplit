@@ -1,0 +1,262 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      UserRole @default(CLIENT)
+  phone     String?  @unique
+  
+  // Configurações de notificações
+  emailNotifications    Boolean @default(false)
+  whatsappNotifications Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  groups    GroupMember[]
+  expenses  Expense[]
+  payments  Payment[]
+  
+  // Auditoria
+  auditLogs AuditLog[]
+
+  @@map("users")
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  plan      PlanType @default(FREE)
+  status    TenantStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Limites do plano
+  maxGroups    Int @default(1)
+  maxMembers   Int @default(5)
+  maxExports   Int @default(10)
+  hasWhatsApp  Boolean @default(false)
+  hasAI        Boolean @default(false)
+  
+  // Créditos
+  credits      Int @default(0)
+  
+  // Relacionamentos
+  users       User[]
+  groups      Group[]
+  categories  Category[]
+  subscriptions Subscription[]
+  
+  // Auditoria
+  auditLogs   AuditLog[]
+
+  @@map("tenants")
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  tenantId    String
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  members     GroupMember[]
+  expenses    Expense[]
+  categories  Category[]
+  
+  // Auditoria
+  auditLogs   AuditLog[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  role      MemberRole @default(MEMBER)
+  joinedAt  DateTime @default(now())
+  
+  // Relacionamentos
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  groupId   String
+  group     Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+  @@map("group_members")
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  color     String
+  icon      String?
+  createdAt DateTime @default(now())
+  
+  // Relacionamentos
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  groupId   String?
+  group     Group? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  
+  expenses  Expense[]
+
+  @@map("categories")
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  date        DateTime
+  status      ExpenseStatus @default(PENDING)
+  receiptUrl  String?
+  receiptData Json? // Dados extraídos pela IA
+  
+  // Dados da IA
+  aiExtracted Boolean @default(false)
+  aiConfidence Decimal? @db.Decimal(3, 2)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  paidById   String
+  paidBy     User @relation(fields: [paidById], references: [id], onDelete: Cascade)
+  
+  groupId    String
+  group      Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  
+  payments   Payment[]
+  
+  // Auditoria
+  auditLogs  AuditLog[]
+
+  @@map("expenses")
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  amount    Decimal  @db.Decimal(10, 2)
+  status    PaymentStatus @default(PENDING)
+  paidAt    DateTime?
+  createdAt DateTime @default(now())
+  
+  // Relacionamentos
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  expenseId String
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  externalId String  @unique // ID do Mercado Pago
+  status    SubscriptionStatus
+  plan      PlanType
+  startDate DateTime
+  endDate   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relacionamentos
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  
+  // Relacionamentos
+  userId    String?
+  user      User? @relation(fields: [userId], references: [id])
+  
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  groupId   String?
+  group     Group? @relation(fields: [groupId], references: [id])
+  
+  expenseId String?
+  expense   Expense? @relation(fields: [expenseId], references: [id])
+
+  @@map("audit_logs")
+}
+
+// Enums
+enum UserRole {
+  CLIENT
+  ADMIN
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum PlanType {
+  FREE
+  PREMIUM
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum ExpenseStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PENDING
+} 
