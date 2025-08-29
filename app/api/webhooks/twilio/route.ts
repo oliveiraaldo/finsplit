@@ -62,41 +62,96 @@ export async function POST(request: NextRequest) {
 
 async function handleReceiptUpload(from: string, mediaUrl: string, user: any, messageSid: string) {
   try {
-    // Baixar a mídia
-    const mediaResponse = await fetch(mediaUrl)
+    console.log('📥 Processando imagem do recibo...')
+    console.log('🔗 URL da mídia:', mediaUrl)
+    
+    // Baixar a mídia com autenticação Twilio
+    const accountSid = process.env.TWILIO_ACCOUNT_SID
+    const authToken = process.env.TWILIO_AUTH_TOKEN
+    
+    if (!accountSid || !authToken) {
+      throw new Error('Credenciais Twilio não configuradas')
+    }
+    
+    // Criar headers de autenticação Basic Auth
+    const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64')
+    
+    const mediaResponse = await fetch(mediaUrl, {
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'User-Agent': 'FinSplit/1.0'
+      }
+    })
+    
+    if (!mediaResponse.ok) {
+      throw new Error(`Erro ao baixar mídia: ${mediaResponse.status} ${mediaResponse.statusText}`)
+    }
+    
     const mediaBuffer = await mediaResponse.arrayBuffer()
-
+    
+    // Verificar headers da resposta
+    const contentType = mediaResponse.headers.get('content-type')
+    const contentLength = mediaResponse.headers.get('content-length')
+    console.log('📋 Headers da mídia:')
+    console.log('  - Content-Type:', contentType)
+    console.log('  - Content-Length:', contentLength)
+    console.log('  - Buffer size:', mediaBuffer.byteLength)
+    
+    // Verificar se é realmente uma imagem
+    if (!contentType || !contentType.startsWith('image/')) {
+      console.log('❌ Não é uma imagem válida. Content-Type:', contentType)
+      console.log('📄 Conteúdo recebido (primeiros 200 chars):', Buffer.from(mediaBuffer).toString('utf8').substring(0, 200))
+      throw new Error(`Formato inválido: ${contentType}. Esperado: image/*`)
+    }
+    
+    if (mediaBuffer.byteLength < 1000) {
+      throw new Error(`Imagem muito pequena: ${mediaBuffer.byteLength} bytes. Mínimo esperado: 1000 bytes`)
+    }
+  
     // Converter para base64
     const base64Media = Buffer.from(mediaBuffer).toString('base64')
+    console.log('📊 Base64 gerado:', base64Media.substring(0, 100) + '...')
 
-    // Extrair dados com OpenAI (com fallback para demonstração)
+    // Extrair dados com OpenAI
     let extractionResult = await extractReceiptData(base64Media)
 
-    // Se falhar na OpenAI, usar modo de demonstração
+    // Se falhar na OpenAI, informar erro específico
     if (!extractionResult.success) {
-      console.log('⚠️ OpenAI falhou no webhook, usando modo de demonstração')
-      extractionResult = await extractReceiptDataDemo(base64Media)
+      console.log('❌ OpenAI falhou:', extractionResult.error)
       
-      if (!extractionResult.success) {
-        await sendWhatsAppMessage(from, 'Não consegui ler o recibo. Tente enviar uma imagem mais clara.')
-        return NextResponse.json({ message: 'Falha na extração' })
+      let errorMessage = 'Erro ao processar o recibo. '
+      const error = extractionResult.error || 'Erro desconhecido'
+      
+      if (error.includes('unsupported image')) {
+        errorMessage += 'Formato de imagem não suportado. Use PNG, JPEG, GIF ou WebP.'
+      } else if (error.includes('quota')) {
+        errorMessage += 'Quota OpenAI excedida. Tente novamente mais tarde.'
+      } else {
+        errorMessage += 'Tente enviar uma imagem mais clara ou em formato diferente.'
       }
+      
+      await sendWhatsAppMessage(from, errorMessage)
+      return NextResponse.json({ message: 'Falha na extração: ' + extractionResult.error })
     }
 
     // Criar despesa pendente
     const expense = await prisma.expense.create({
       data: {
-        description: extractionResult.data.description || 'Recibo enviado via WhatsApp',
-        amount: extractionResult.data.amount,
-        date: extractionResult.data.date || new Date(),
+        description: extractionResult.data.estabelecimento?.nome || extractionResult.data.description || 'Recibo enviado via WhatsApp',
+        amount: extractionResult.data.totais?.total_final || extractionResult.data.amount || 0,
+        date: extractionResult.data.datas?.emissao ? new Date(extractionResult.data.datas.emissao) : new Date(),
         status: 'PENDING',
         receiptUrl: mediaUrl,
         receiptData: extractionResult.data,
         aiExtracted: true,
         aiConfidence: extractionResult.confidence,
-        paidById: user.id,
-        groupId: user.tenant.groups[0]?.id, // Grupo padrão por enquanto
-        categoryId: null
+        paidBy: {
+          connect: { id: user.id }
+        },
+        group: {
+          connect: { id: (await getOrCreateDefaultGroup(user.tenantId)).id }
+        },
+        categoryId: undefined
       }
     })
 
@@ -120,9 +175,10 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
 
     // Enviar confirmação
     const message = `✅ Recibo recebido!\n\n` +
-      `📝 Descrição: ${extractionResult.data.description}\n` +
-      `💰 Valor: R$ ${extractionResult.data.amount}\n` +
-      `📅 Data: ${extractionResult.data.date}\n\n` +
+      `🏪 Estabelecimento: ${extractionResult.data.estabelecimento?.nome || 'Não identificado'}\n` +
+      `💰 Valor: R$ ${extractionResult.data.totais?.total_final || extractionResult.data.amount || 0}\n` +
+      `📅 Data: ${extractionResult.data.datas?.emissao || extractionResult.data.date || 'Não identificada'}\n` +
+      `📄 Recibo: ${extractionResult.data.documento?.numero_recibo || 'Não identificado'}\n\n` +
       `Responda "sim" para confirmar ou "não" para rejeitar.`
 
     await sendWhatsAppMessage(from, message)
@@ -217,15 +273,62 @@ async function handleTextMessage(from: string, body: string, user: any) {
 
 async function extractReceiptData(base64Image: string) {
   try {
+    console.log('🤖 Tentando extração com OpenAI...')
+    
+    const prompt = `
+      Você é um motor de extração estruturada de dados de recibos e comprovantes brasileiros.
+      Receberá uma imagem de recibo e deve retornar apenas JSON, seguindo o esquema abaixo.
+      Se um campo não existir, use null. Não invente valores.
+
+      Esquema JSON esperado:
+      {
+        "estabelecimento": {
+          "nome": "Nome do estabelecimento",
+          "tipo": "tipo do estabelecimento",
+          "cnpj": "CNPJ apenas dígitos",
+          "endereco": "endereço completo",
+          "cidade": "cidade",
+          "uf": "UF",
+          "telefone": "telefone apenas dígitos"
+        },
+        "documento": {
+          "numero_recibo": "número do recibo",
+          "protocolo": "protocolo se houver"
+        },
+        "datas": {
+          "emissao": "data de emissão YYYY-MM-DD",
+          "previsao_entrega": "data de previsão se houver"
+        },
+        "itens": [
+          {
+            "descricao": "descrição do item",
+            "quantidade": 1,
+            "valor_total": valor_total_numerico
+          }
+        ],
+        "totais": {
+          "total_final": valor_total_final_numerico,
+          "moeda": "BRL",
+          "pago": true/false
+        },
+        "pessoa_referida": {
+          "nome": "nome da pessoa",
+          "cpf": "CPF apenas dígitos"
+        }
+      }
+      
+      Responda APENAS com o JSON válido, sem texto adicional.
+    `
+
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // Modelo atualizado (gpt-4o inclui vision)
+      model: "gpt-4o",
       messages: [
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: "Analise este recibo e extraia os dados em formato JSON. Inclua apenas: description (string), amount (number), date (string ISO), items (array de strings). Se algum dado não estiver claro, use null."
+              text: prompt
             },
             {
               type: "image_url",
@@ -236,43 +339,105 @@ async function extractReceiptData(base64Image: string) {
           ]
         }
       ],
-      max_tokens: 500
+      max_tokens: 1000
     })
 
     const content = response.choices[0]?.message?.content
     if (!content) {
-      return { success: false, error: 'Resposta vazia da IA' }
+      console.log('❌ OpenAI retornou conteúdo vazio')
+      return { success: false, error: 'Sem resposta da IA' }
     }
+
+    console.log('📝 Resposta bruta da OpenAI:', content.substring(0, 200) + '...')
 
     // Tentar extrair JSON da resposta
     const jsonMatch = content.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
+      console.log('❌ Não foi possível encontrar JSON na resposta')
       return { success: false, error: 'Formato de resposta inválido' }
     }
 
     const extractedData = JSON.parse(jsonMatch[0])
+    console.log('✅ JSON extraído com sucesso:', Object.keys(extractedData))
     
+    // Validar dados obrigatórios
+    if (!extractedData.totais?.total_final && !extractedData.estabelecimento?.nome) {
+      console.log('❌ Dados obrigatórios não encontrados')
+      return { success: false, error: 'Dados obrigatórios não encontrados' }
+    }
+
     return {
       success: true,
       data: extractedData,
-      confidence: 0.85 // Confiança padrão
+      confidence: 0.95,
+      source: 'openai'
     }
 
   } catch (error) {
-    console.error('Erro na extração de dados:', error)
-    return { success: false, error: 'Falha na extração' }
+    console.error('❌ Erro na extração OpenAI:', error)
+    
+    // Se for erro de quota, retornar erro específico
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'insufficient_quota') {
+      return { success: false, error: 'Quota OpenAI excedida' }
+    }
+    
+    if (error && typeof error === 'object' && 'status' in error && error.status === 429) {
+      return { success: false, error: 'Quota OpenAI excedida' }
+    }
+    
+    return { success: false, error: 'Erro na extração' }
   }
 }
 
 async function sendWhatsAppMessage(to: string, body: string) {
   try {
+    // Formatar número para WhatsApp
+    const formattedFrom = `whatsapp:${process.env.TWILIO_PHONE_NUMBER}`
+    const formattedTo = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`
+    
+    console.log('📱 Enviando mensagem WhatsApp:')
+    console.log('  From:', formattedFrom)
+    console.log('  To:', formattedTo)
+    console.log('  Body:', body)
+    
     await twilio.messages.create({
       body,
-      from: process.env.TWILIO_PHONE_NUMBER!,
-      to
+      from: formattedFrom,
+      to: formattedTo
     })
+    
+    console.log('✅ Mensagem WhatsApp enviada com sucesso')
+  } catch (error: any) {
+    console.error('❌ Erro ao enviar mensagem WhatsApp:', error)
+    console.error('  Detalhes:', error.message)
+    console.error('  Código:', error.code)
+  }
+}
+
+// Função para criar ou obter grupo padrão
+async function getOrCreateDefaultGroup(tenantId: string) {
+  try {
+    // Tentar encontrar um grupo existente
+    let group = await prisma.group.findFirst({
+      where: { tenantId }
+    })
+
+    // Se não existir, criar um grupo padrão
+    if (!group) {
+      group = await prisma.group.create({
+        data: {
+          name: 'Despesas Gerais',
+          description: 'Grupo padrão para despesas via WhatsApp',
+          tenantId
+        }
+      })
+      console.log('✅ Grupo padrão criado:', group.name)
+    }
+
+    return group
   } catch (error) {
-    console.error('Erro ao enviar mensagem WhatsApp:', error)
+    console.error('❌ Erro ao criar/obter grupo padrão:', error)
+    throw error
   }
 }
 
@@ -297,7 +462,8 @@ async function extractReceiptDataDemo(imageBase64: string) {
     return {
       success: true,
       data: demoData,
-      confidence: 0.7 // Confiança média para dados simulados
+      confidence: 0.7, // Confiança média para dados simulados
+      source: 'demo'
     }
     
   } catch (error) {
