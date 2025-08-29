@@ -362,20 +362,80 @@ export function ExpenseModal({
             </div>
           )}
 
-          {/* Recibo */}
+          {/* Comprovante/Recibo */}
           {expense.receiptUrl && (
-            <div className="space-y-2">
-              <Label>Recibo</Label>
-              <div className="p-3 bg-gray-50 rounded-md">
-                <a
-                  href={expense.receiptUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline flex items-center gap-2"
-                >
-                  <Receipt className="h-4 w-4" />
-                  Visualizar recibo
-                </a>
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Receipt className="h-4 w-4" />
+                Comprovante
+              </Label>
+              
+              <div className="border rounded-lg overflow-hidden bg-white">
+                {/* Preview da imagem ou documento */}
+                <div className="bg-gray-50 p-4">
+                  {expense.receiptUrl.includes('image') || 
+                   expense.mediaType === 'image' || 
+                   expense.receiptUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                    // Se for imagem, mostrar preview
+                    <div className="space-y-3">
+                      <div className="relative group">
+                        <img
+                          src={`/api/receipts/proxy?url=${encodeURIComponent(expense.receiptUrl)}&expenseId=${expense.id}`}
+                          alt="Comprovante da despesa"
+                          className="max-w-full h-auto max-h-96 mx-auto rounded-lg shadow-sm border"
+                          style={{ objectFit: 'contain' }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'
+                            e.currentTarget.nextElementSibling?.classList?.remove('hidden')
+                          }}
+                        />
+                        <div className="hidden text-center py-8">
+                          <Receipt className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                          <p className="text-sm text-gray-500">Erro ao carregar imagem</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Se for outro tipo de documento
+                    <div className="text-center py-8">
+                      <Receipt className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                      <p className="text-sm font-medium text-gray-700 mb-1">
+                        Documento anexado
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {expense.documentType || 'Documento'} • {expense.mediaType || 'Arquivo'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Links de ação */}
+                <div className="p-3 bg-gray-50 border-t flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    {expense.documentType && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                        {expense.documentType}
+                      </span>
+                    )}
+                    {expense.aiExtracted && (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                        IA
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={expense.receiptUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Abrir original
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           )}
