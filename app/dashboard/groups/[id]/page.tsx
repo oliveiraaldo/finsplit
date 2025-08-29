@@ -15,6 +15,7 @@ import {
   Download
 } from 'lucide-react'
 import Link from 'next/link'
+import { AddMemberModal } from '@/components/dashboard/add-member-modal'
 
 interface GroupMember {
   id: string
@@ -50,6 +51,7 @@ export default function GroupDetailsPage() {
   const [group, setGroup] = useState<GroupDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'expenses' | 'members'>('overview')
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false)
 
   useEffect(() => {
     const fetchGroupDetails = async () => {
@@ -72,6 +74,15 @@ export default function GroupDetailsPage() {
       fetchGroupDetails()
     }
   }, [groupId])
+
+  const handleMemberAdded = (newMember: any) => {
+    if (group) {
+      setGroup({
+        ...group,
+        members: [...group.members, newMember]
+      })
+    }
+  }
 
   if (isLoading) {
     return (
@@ -123,7 +134,10 @@ export default function GroupDetailsPage() {
           </div>
           
           <div className="flex gap-3">
-            <Button variant="outline">
+            <Button 
+              variant="outline"
+              onClick={() => setIsAddMemberModalOpen(true)}
+            >
               <UserPlus className="mr-2 h-4 w-4" />
               Adicionar Membro
             </Button>
@@ -320,7 +334,7 @@ export default function GroupDetailsPage() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Membros do Grupo</span>
-                <Button>
+                <Button onClick={() => setIsAddMemberModalOpen(true)}>
                   <UserPlus className="mr-2 h-4 w-4" />
                   Adicionar Membro
                 </Button>
@@ -367,6 +381,14 @@ export default function GroupDetailsPage() {
           </Card>
         )}
       </div>
+
+      {/* Modal de Adicionar Membro */}
+      <AddMemberModal
+        groupId={groupId}
+        isOpen={isAddMemberModalOpen}
+        onClose={() => setIsAddMemberModalOpen(false)}
+        onMemberAdded={handleMemberAdded}
+      />
     </DashboardLayout>
   )
 } 

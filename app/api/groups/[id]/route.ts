@@ -142,6 +142,116 @@ export async function GET(
   }
 }
 
+// PUT - Atualizar grupo
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user?.tenantId) {
+      return NextResponse.json(
+        { message: 'Não autorizado' },
+        { status: 401 }
+      )
+    }
+
+    const groupId = params.id
+    const tenantId = session.user.tenantId
+    const userId = session.user.id
+    const body = await request.json()
+    
+    console.log('📝 Dados recebidos para atualização do grupo:', body)
+
+    // Validar dados recebidos
+    if (!body.name || typeof body.name !== 'string') {
+      return NextResponse.json(
+        { message: 'Nome do grupo é obrigatório' },
+        { status: 400 }
+      )
+    }
+
+    // Verificar se o usuário é membro do grupo (apenas administradores podem editar)
+    const groupMembership = await prisma.groupMember.findFirst({
+      where: {
+        groupId,
+        userId,
+        role: {
+          in: ['OWNER', 'ADMIN']
+        }
+      }
+    })
+
+    if (!groupMembership) {
+      return NextResponse.json(
+        { message: 'Apenas administradores podem editar o grupo' },
+        { status: 403 }
+      )
+    }
+
+    // Verificar se o grupo existe e pertence ao tenant
+    const existingGroup = await prisma.group.findFirst({
+      where: {
+        id: groupId,
+        tenantId
+      }
+    })
+
+    if (!existingGroup) {
+      return NextResponse.json(
+        { message: 'Grupo não encontrado' },
+        { status: 404 }
+      )
+    }
+
+    // Atualizar o grupo
+    const updatedGroup = await prisma.group.update({
+      where: {
+        id: groupId
+      },
+      data: {
+        name: body.name.trim(),
+        description: body.description?.trim() || null,
+        updatedAt: new Date()
+      }
+    })
+
+    // Log de auditoria
+    await prisma.auditLog.create({
+      data: {
+        action: 'GROUP_UPDATED',
+        entity: 'GROUP',
+        entityId: groupId,
+        details: { 
+          changes: {
+            name: { from: existingGroup.name, to: body.name.trim() },
+            description: { from: existingGroup.description, to: body.description?.trim() }
+          }
+        },
+        tenantId,
+        userId
+      }
+    })
+
+    console.log('✅ Grupo atualizado:', updatedGroup)
+
+    return NextResponse.json({
+      id: updatedGroup.id,
+      name: updatedGroup.name,
+      description: updatedGroup.description,
+      updatedAt: updatedGroup.updatedAt
+    })
+
+  } catch (error) {
+    console.error('Erro ao atualizar grupo:', error)
+    return NextResponse.json(
+      { message: 'Erro interno do servidor' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }

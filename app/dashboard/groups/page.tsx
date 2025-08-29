@@ -17,6 +17,7 @@ import {
   UserPlus
 } from 'lucide-react'
 import Link from 'next/link'
+import { GroupEditModal } from '@/components/dashboard/group-edit-modal'
 
 interface Group {
   id: string
@@ -33,6 +34,8 @@ export default function GroupsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filteredGroups, setFilteredGroups] = useState<Group[]>([])
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   useEffect(() => {
     const fetchGroups = async () => {
@@ -67,6 +70,23 @@ export default function GroupsPage() {
       setFilteredGroups(filtered)
     }
   }, [searchTerm, groups])
+
+  const handleEditGroup = (group: Group) => {
+    console.log('✏️ Editando grupo:', group.id)
+    setSelectedGroup(group)
+    setIsEditModalOpen(true)
+  }
+
+  const handleUpdateGroup = (updatedGroup: any) => {
+    console.log('🔄 Atualizando grupo na lista:', updatedGroup)
+    setGroups(groups.map(g => 
+      g.id === updatedGroup.id ? {
+        ...g,
+        name: updatedGroup.name,
+        description: updatedGroup.description
+      } : g
+    ))
+  }
 
   const handleDeleteGroup = async (groupId: string) => {
     if (!confirm('Tem certeza que deseja excluir este grupo? Esta ação não pode ser desfeita.')) {
@@ -205,7 +225,10 @@ export default function GroupsPage() {
                               Ver Detalhes
                             </button>
                           </Link>
-                          <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                          <button 
+                            onClick={() => handleEditGroup(group)}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
                             <Edit className="h-4 w-4" />
                             Editar
                           </button>
@@ -298,6 +321,17 @@ export default function GroupsPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de Edição */}
+      <GroupEditModal
+        group={selectedGroup}
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setSelectedGroup(null)
+        }}
+        onUpdate={handleUpdateGroup}
+      />
     </DashboardLayout>
   )
 } 
