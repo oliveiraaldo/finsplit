@@ -211,9 +211,12 @@ async function extractReceiptData(imageBase64: string, description?: string) {
     console.log('✅ JSON extraído com sucesso:', Object.keys(extractedData))
     
     // Validar dados obrigatórios
-    if (!extractedData.totais?.total_final && !extractedData.recebedor?.nome && !extractedData.estabelecimento?.nome) {
-      console.log('❌ Dados obrigatórios não encontrados')
-      return { success: false, error: 'Dados obrigatórios não encontrados' }
+    const hasRecipient = extractedData.recebedor?.nome || extractedData.estabelecimento?.nome
+    const hasAmount = extractedData.totais?.total_final
+    
+    if (!hasRecipient || !hasAmount) {
+      console.log('❌ Dados obrigatórios não encontrados:', { hasRecipient: !!hasRecipient, hasAmount: !!hasAmount })
+      return { success: false, error: 'Dados obrigatórios não encontrados (recebedor e valor)' }
     }
 
     return {
