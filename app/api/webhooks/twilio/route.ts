@@ -253,6 +253,19 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
       })
       message += `0. Criar novo grupo\n\n`
       message += `Responda com o número do grupo ou "0" para novo grupo.`
+      
+      // Definir estado do usuário para aguardar seleção de grupo
+      await setUserState(user.id, { 
+        action: 'SELECTING_GROUP', 
+        groups: userGroups,
+        pendingExpenseData: {
+          description: extractionResult.data.recebedor?.nome || extractionResult.data.estabelecimento?.nome,
+          amount: extractionResult.data.totais?.total_final || extractionResult.data.amount,
+          date: extractionResult.data.datas?.emissao ? new Date(extractionResult.data.datas.emissao) : new Date(),
+          receiptData: extractionResult.data,
+          mediaUrl: mediaUrl
+        }
+      })
     } else {
       message += `📋 Grupo: Despesas Gerais (padrão)\n\n` +
         `Responda "sim" para confirmar ou "não" para rejeitar.`
@@ -272,20 +285,37 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
 async function handleTextMessage(from: string, body: string, user: any) {
   const text = body.toLowerCase().trim()
 
-  if (text === 'sim' || text === 'yes' || text === 'confirmar') {
-    // Confirmar despesa pendente
-    const pendingExpense = await prisma.expense.findFirst({
-      where: {
-        paidById: user.id,
-        status: 'PENDING'
-      },
-      orderBy: { createdAt: 'desc' }
-    })
+  // Verificar se o usuário está em processo de seleção de grupo
+  const userState = await getUserState(user.id)
+  
+  if (userState && userState.action === 'SELECTING_GROUP') {
+    return await handleGroupSelection(from, text, user, userState)
+  }
 
-    if (pendingExpense) {
-      await prisma.expense.update({
-        where: { id: pendingExpense.id },
-        data: { status: 'CONFIRMED' }
+  if (text === 'sim' || text === 'yes' || text === 'confirmar') {
+    // Verificar se o usuário está aguardando confirmação com grupo selecionado
+    const userState = await getUserState(user.id)
+    
+    if (userState && userState.action === 'WAITING_CONFIRMATION') {
+      // Criar despesa no grupo selecionado
+      const expense = await prisma.expense.create({
+        data: {
+          description: userState.pendingExpenseData.description,
+          amount: userState.pendingExpenseData.amount,
+          date: userState.pendingExpenseData.date,
+          status: 'CONFIRMED',
+          receiptUrl: userState.pendingExpenseData.mediaUrl,
+          receiptData: userState.pendingExpenseData.receiptData,
+          aiExtracted: true,
+          aiConfidence: 0.95,
+          paidBy: {
+            connect: { id: user.id }
+          },
+          group: {
+            connect: { id: userState.groupId }
+          },
+          categoryId: undefined
+        }
       })
 
       // Log de auditoria
@@ -293,19 +323,55 @@ async function handleTextMessage(from: string, body: string, user: any) {
         data: {
           action: 'EXPENSE_CONFIRMED_WHATSAPP',
           entity: 'EXPENSE',
-          entityId: pendingExpense.id,
-          details: { confirmedVia: 'whatsapp' },
+          entityId: expense.id,
+          details: { confirmedVia: 'whatsapp', groupId: userState.groupId },
           tenantId: user.tenantId,
           userId: user.id
         }
       })
 
       // Enviar link da planilha
-      const dashboardUrl = `${process.env.NEXTAUTH_URL}/dashboard/groups/${pendingExpense.groupId}`
-      await sendWhatsAppMessage(from, `✅ Despesa confirmada!\n\n📊 Veja na planilha: ${dashboardUrl}`)
-
+      const dashboardUrl = `${process.env.NEXTAUTH_URL}/dashboard/groups/${userState.groupId}`
+      await sendWhatsAppMessage(from, `✅ Despesa confirmada no grupo!\n\n📊 Veja na planilha: ${dashboardUrl}`)
+      
+      // Limpar estado do usuário
+      await setUserState(user.id, null)
+      
     } else {
-      await sendWhatsAppMessage(from, 'Não há despesas pendentes para confirmar.')
+      // Confirmar despesa pendente (comportamento antigo)
+      const pendingExpense = await prisma.expense.findFirst({
+        where: {
+          paidById: user.id,
+          status: 'PENDING'
+        },
+        orderBy: { createdAt: 'desc' }
+      })
+
+      if (pendingExpense) {
+        await prisma.expense.update({
+          where: { id: pendingExpense.id },
+          data: { status: 'CONFIRMED' }
+        })
+
+        // Log de auditoria
+        await prisma.auditLog.create({
+          data: {
+            action: 'EXPENSE_CONFIRMED_WHATSAPP',
+            entity: 'EXPENSE',
+            entityId: pendingExpense.id,
+            details: { confirmedVia: 'whatsapp' },
+            tenantId: user.tenantId,
+            userId: user.id
+          }
+        })
+
+        // Enviar link da planilha
+        const dashboardUrl = `${process.env.NEXTAUTH_URL}/dashboard/groups/${pendingExpense.groupId}`
+        await sendWhatsAppMessage(from, `✅ Despesa confirmada!\n\n📊 Veja na planilha: ${dashboardUrl}`)
+
+      } else {
+        await sendWhatsAppMessage(from, 'Não há despesas pendentes para confirmar.')
+      }
     }
 
   } else if (text === 'não' || text === 'no' || text === 'rejeitar') {
@@ -539,6 +605,84 @@ function validateRequiredFields(data: any) {
     isValid: missing.length === 0,
     missing,
     data: required
+  }
+}
+
+// Função para gerenciar estado do usuário
+async function getUserState(userId: string) {
+  try {
+    // Por enquanto, vamos usar uma abordagem simples com cache em memória
+    // Em produção, isso deveria ser armazenado no banco de dados
+    return (global as any).userStates?.[userId] || null
+  } catch (error) {
+    console.error('❌ Erro ao buscar estado do usuário:', error)
+    return null
+  }
+}
+
+async function setUserState(userId: string, state: any) {
+  try {
+    if (!(global as any).userStates) {
+      (global as any).userStates = {}
+    }
+    (global as any).userStates[userId] = state
+    return true
+  } catch (error) {
+    console.error('❌ Erro ao definir estado do usuário:', error)
+    return false
+  }
+}
+
+// Função para processar seleção de grupo
+async function handleGroupSelection(from: string, text: string, user: any, userState: any) {
+  try {
+    const selection = parseInt(text)
+    
+    if (isNaN(selection)) {
+      await sendWhatsAppMessage(from, '❌ Por favor, digite apenas o número do grupo (1, 2, 3...) ou "0" para novo grupo.')
+      return NextResponse.json({ message: 'Seleção inválida' })
+    }
+
+    if (selection === 0) {
+      // Criar novo grupo
+      const newGroup = await prisma.group.create({
+        data: {
+          name: `Grupo ${new Date().toLocaleDateString('pt-BR')}`,
+          description: 'Grupo criado via WhatsApp',
+          tenantId: user.tenantId,
+          members: {
+            create: {
+              userId: user.id,
+              role: 'ADMIN'
+            }
+          }
+        }
+      })
+
+      await sendWhatsAppMessage(from, `✅ Novo grupo criado: "${newGroup.name}"\n\nAgora responda "sim" para confirmar a despesa neste grupo.`)
+      
+      // Atualizar estado do usuário para aguardar confirmação
+      await setUserState(user.id, { action: 'WAITING_CONFIRMATION', groupId: newGroup.id })
+      
+    } else if (selection > 0 && selection <= userState.groups.length) {
+      // Selecionar grupo existente
+      const selectedGroup = userState.groups[selection - 1]
+      
+      await sendWhatsAppMessage(from, `✅ Grupo selecionado: "${selectedGroup.name}"\n\nAgora responda "sim" para confirmar a despesa neste grupo.`)
+      
+      // Atualizar estado do usuário para aguardar confirmação
+      await setUserState(user.id, { action: 'WAITING_CONFIRMATION', groupId: selectedGroup.id })
+      
+    } else {
+      await sendWhatsAppMessage(from, `❌ Número inválido. Digite um número entre 1 e ${userState.groups.length}, ou "0" para novo grupo.`)
+    }
+
+    return NextResponse.json({ message: 'Seleção de grupo processada' })
+    
+  } catch (error) {
+    console.error('❌ Erro ao processar seleção de grupo:', error)
+    await sendWhatsAppMessage(from, '❌ Erro ao processar seleção. Digite "ajuda" para ver as opções.')
+    return NextResponse.json({ message: 'Erro ao processar seleção' })
   }
 }
 
