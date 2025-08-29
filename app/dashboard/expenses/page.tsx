@@ -20,6 +20,7 @@ import {
   Tag
 } from 'lucide-react'
 import Link from 'next/link'
+import { ExpenseModal } from '@/components/dashboard/expense-modal'
 
 interface Expense {
   id: string
@@ -38,6 +39,8 @@ export default function ExpensesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([])
+  const [selectedExpense, setSelectedExpense] = useState<any>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   useEffect(() => {
     const fetchExpenses = async () => {
@@ -80,6 +83,33 @@ export default function ExpensesPage() {
 
     setFilteredExpenses(filtered)
   }, [searchTerm, statusFilter, expenses])
+
+  const handleViewExpense = async (expenseId: string) => {
+    try {
+      const response = await fetch(`/api/expenses/${expenseId}`)
+      if (response.ok) {
+        const expenseData = await response.json()
+        setSelectedExpense(expenseData)
+        setIsModalOpen(true)
+      } else {
+        toast.error('Erro ao carregar dados da despesa')
+      }
+    } catch (error) {
+      toast.error('Erro ao carregar dados da despesa')
+    }
+  }
+
+  const handleUpdateExpense = (updatedExpense: any) => {
+    setExpenses(expenses.map(e => 
+      e.id === updatedExpense.id ? {
+        ...e,
+        description: updatedExpense.description,
+        amount: updatedExpense.amount,
+        date: updatedExpense.date,
+        status: updatedExpense.status
+      } : e
+    ))
+  }
 
   const handleDeleteExpense = async (expenseId: string) => {
     if (!confirm('Tem certeza que deseja excluir esta despesa? Esta ação não pode ser desfeita.')) {
@@ -157,11 +187,23 @@ export default function ExpensesPage() {
             {[...Array(5)].map((_, i) => (
               <div key={i} className="h-20 bg-gray-200 rounded animate-pulse"></div>
             ))}
-          </div>
-        </div>
-      </DashboardLayout>
-    )
-  }
+                  </div>
+
+        {/* Modal de Despesa */}
+        <ExpenseModal
+          expense={selectedExpense}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false)
+            setSelectedExpense(null)
+          }}
+          onUpdate={handleUpdateExpense}
+          onDelete={handleDeleteExpense}
+        />
+      </div>
+    </DashboardLayout>
+  )
+}
 
   return (
     <DashboardLayout>
@@ -299,13 +341,23 @@ export default function ExpensesPage() {
                       </div>
                       
                       <div className="flex flex-col gap-1">
-                        <Link href={`/dashboard/expenses/${expense.id}`}>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0"
+                          onClick={() => handleViewExpense(expense.id)}
+                          title="Visualizar"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0"
+                          onClick={() => handleViewExpense(expense.id)}
+                          title="Editar"
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
                         
@@ -314,6 +366,7 @@ export default function ExpensesPage() {
                           size="sm" 
                           className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
                           onClick={() => handleDeleteExpense(expense.id)}
+                          title="Excluir"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
