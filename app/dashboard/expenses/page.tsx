@@ -89,7 +89,22 @@ export default function ExpensesPage() {
       const response = await fetch(`/api/expenses/${expenseId}`)
       if (response.ok) {
         const expenseData = await response.json()
-        setSelectedExpense(expenseData)
+        setSelectedExpense({ ...expenseData, editMode: false })
+        setIsModalOpen(true)
+      } else {
+        toast.error('Erro ao carregar dados da despesa')
+      }
+    } catch (error) {
+      toast.error('Erro ao carregar dados da despesa')
+    }
+  }
+
+  const handleEditExpense = async (expenseId: string) => {
+    try {
+      const response = await fetch(`/api/expenses/${expenseId}`)
+      if (response.ok) {
+        const expenseData = await response.json()
+        setSelectedExpense({ ...expenseData, editMode: true })
         setIsModalOpen(true)
       } else {
         toast.error('Erro ao carregar dados da despesa')
@@ -355,7 +370,7 @@ export default function ExpensesPage() {
                           variant="ghost" 
                           size="sm" 
                           className="h-8 w-8 p-0"
-                          onClick={() => handleViewExpense(expense.id)}
+                          onClick={() => handleEditExpense(expense.id)}
                           title="Editar"
                         >
                           <Edit className="h-4 w-4" />

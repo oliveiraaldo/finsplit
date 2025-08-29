@@ -63,6 +63,10 @@ export function ExpenseModal({
         status: expense.status || 'PENDING',
         categoryId: expense.categoryId || ''
       })
+      // Definir automaticamente o modo de edição se especificado
+      setIsEditing(expense.editMode || false)
+    } else {
+      setIsEditing(false)
     }
   }, [expense])
 
