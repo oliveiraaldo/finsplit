@@ -403,16 +403,16 @@ export default function GroupDetailsPage() {
                         member.balance > 0 ? 'text-green-600' : 
                         member.balance < 0 ? 'text-red-600' : 'text-gray-600'
                       }`}>
-                        <div className="font-semibold">
+                        <div className="text-sm font-medium">
                           {member.balance > 0 ? '+' : ''}R$ {member.balance.toFixed(2)}
                         </div>
-                        <div className="text-xs">
+                        <div className="text-xs text-gray-500">
                           {member.balance > 0 ? 'Deve receber' : 
                            member.balance < 0 ? 'Deve pagar' : 'Em dia'}
                         </div>
                       </div>
                       
-                      {(canAddMembers || member.isCurrentUser) && (
+                      {(canAddMembers || member.isCurrentUser) && member.role !== 'OWNER' && (
                         <Button 
                           variant="outline" 
                           size="sm"
