@@ -25,18 +25,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Usuário não encontrado' })
     }
 
-    // Verificar se o tenant tem WhatsApp habilitado (permitir durante desenvolvimento)
+    // Verificar se o tenant tem WhatsApp habilitado
     if (!user.tenant.hasWhatsApp) {
-      console.log('⚠️ Usuário sem WhatsApp habilitado, mas permitindo durante desenvolvimento')
-      // await sendWhatsAppMessage(from, 'Seu plano atual não inclui integração com WhatsApp. Faça upgrade para Premium.')
-      // return NextResponse.json({ message: 'WhatsApp não habilitado' })
+      await sendWhatsAppMessage(from, 'Seu plano atual não inclui integração com WhatsApp. Faça upgrade para Premium.')
+      return NextResponse.json({ message: 'WhatsApp não habilitado' })
     }
 
-    // Verificar se tem créditos (permitir durante desenvolvimento)
+    // Verificar se tem créditos
     if (user.tenant.credits <= 0) {
-      console.log('⚠️ Usuário sem créditos, mas permitindo durante desenvolvimento')
-      // await sendWhatsAppMessage(from, 'Você não tem créditos suficientes. Entre em contato com o suporte.')
-      // return NextResponse.json({ message: 'Sem créditos' })
+      await sendWhatsAppMessage(from, 'Você não tem créditos suficientes. Entre em contato com o suporte.')
+      return NextResponse.json({ message: 'Sem créditos' })
     }
 
     // Se recebeu uma imagem/documento (recibo)
@@ -851,33 +849,4 @@ async function getOrCreateDefaultGroup(tenantId: string, userId: string) {
   }
 }
 
-// Função de demonstração para quando OpenAI não estiver disponível
-async function extractReceiptDataDemo(imageBase64: string) {
-  try {
-    console.log('🎭 Usando modo de demonstração para extração de dados (webhook)')
-    
-    // Simular processamento
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // Dados simulados
-    const demoData = {
-      amount: Math.round((Math.random() * 100 + 10) * 100) / 100, // Valor entre 10-110
-      date: new Date().toISOString().split('T')[0], // Data atual
-      description: 'Recibo enviado via WhatsApp',
-      items: ['Item principal', 'Taxa de serviço'],
-      merchant: 'Estabelecimento Comercial',
-      category: 'Alimentação'
-    }
-    
-    return {
-      success: true,
-      data: demoData,
-      confidence: 0.7, // Confiança média para dados simulados
-      source: 'demo'
-    }
-    
-  } catch (error) {
-    console.error('Erro no modo de demonstração (webhook):', error)
-    return { success: false, error: 'Erro na demonstração' }
-  }
-} 
+ 

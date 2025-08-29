@@ -47,22 +47,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verificar se o usuário tem WhatsApp habilitado (permitir durante desenvolvimento)
+    // Verificar se o usuário tem WhatsApp habilitado
     if (!user.tenant.hasWhatsApp) {
-      console.log('⚠️ Usuário sem WhatsApp habilitado, mas permitindo durante desenvolvimento')
-      // return NextResponse.json(
-      //   { message: 'Seu plano não inclui WhatsApp' },
-      //   { status: 403 }
-      // )
+      return NextResponse.json(
+        { message: 'Seu plano não inclui WhatsApp' },
+        { status: 403 }
+      )
     }
 
-    // Verificar créditos (permitir durante desenvolvimento)
+    // Verificar créditos
     if (user.tenant.credits <= 0) {
-      console.log('⚠️ Usuário sem créditos, mas permitindo durante desenvolvimento')
-      // return NextResponse.json(
-      //   { message: 'Créditos insuficientes' },
-      //   { status: 400 }
-      // )
+      return NextResponse.json(
+        { message: 'Créditos insuficientes' },
+        { status: 400 }
+      )
     }
 
     // Formatar número de telefone para WhatsApp

@@ -37,40 +37,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verificar se o usuário tem IA habilitada (permitir durante desenvolvimento)
+    // Verificar se o usuário tem IA habilitada
     if (!user.tenant.hasAI) {
-      console.log('⚠️ Usuário sem IA habilitada, mas permitindo durante desenvolvimento')
-      // return NextResponse.json(
-      //   { message: 'Seu plano não inclui IA' },
-      //   { status: 403 }
-      // )
+      return NextResponse.json(
+        { message: 'Seu plano não inclui IA' },
+        { status: 403 }
+      )
     }
 
-    // Verificar créditos (permitir durante desenvolvimento)
+    // Verificar créditos
     if (user.tenant.credits <= 0) {
-      console.log('⚠️ Usuário sem créditos, mas permitindo durante desenvolvimento')
-      // return NextResponse.json(
-      //   { message: 'Créditos insuficientes' },
-      //   { status: 403 }
-      // )
+      return NextResponse.json(
+        { message: 'Créditos insuficientes' },
+        { status: 403 }
+      )
     }
 
-    // Extrair dados com OpenAI (com fallback para demonstração)
-    let extractionResult = await extractReceiptData(imageBase64, description)
+    // Extrair dados com OpenAI
+    const extractionResult = await extractReceiptData(imageBase64, description)
 
-    // Se falhar na OpenAI, usar modo de demonstração
     if (!extractionResult.success) {
-      console.log('⚠️ OpenAI falhou, usando modo de demonstração')
-      extractionResult = await extractReceiptDataDemo(imageBase64, description, userCategory)
-      
-      if (!extractionResult.success) {
-        return NextResponse.json(
-          { message: 'Falha na extração dos dados' },
-          { status: 400 }
-        )
-      }
-    } else {
-      console.log('✅ OpenAI funcionou perfeitamente, usando dados reais')
+      return NextResponse.json(
+        { message: 'Falha na extração dos dados: ' + extractionResult.error },
+        { status: 400 }
+      )
     }
 
     // Consumir crédito
@@ -239,209 +229,5 @@ async function extractReceiptData(imageBase64: string, description?: string) {
     }
     
     return { success: false, error: 'Erro na extração' }
-  }
-}
-
-// Função de demonstração para quando OpenAI não estiver disponível
-async function extractReceiptDataDemo(imageBase64: string, description?: string, userCategory?: string) {
-  try {
-    console.log('🎭 Usando modo de demonstração para extração de dados')
-    
-    // Simular processamento
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // Analisar a imagem base64 para detectar padrões
-    const imageAnalysis = analyzeImagePatterns(imageBase64)
-    
-    // Usar categoria personalizada se fornecida, senão usar a detectada
-    const finalCategory = userCategory || imageAnalysis.estimatedCategory
-    
-    // Dados simulados no formato EXATO que o usuário especificou
-    const demoData = {
-      estabelecimento: {
-        nome: imageAnalysis.estimatedMerchant,
-        tipo: "cartório",
-        cnpj: "18756812000127",
-        cpf: null,
-        endereco: "Avenida Deputado Esteves Rodrigues, 660 – Centro",
-        cidade: "Montes Claros",
-        uf: "MG",
-        cep: "39400215",
-        telefone: "3832123032",
-        site: "www.2rimc.com.br"
-      },
-      documento: {
-        numero_recibo: "113466",
-        protocolo: "225879",
-        senha_web: "J388"
-      },
-      datas: {
-        emissao: imageAnalysis.estimatedDate,
-        previsao_entrega: "2025-09-19"
-      },
-      itens: [
-        {
-          codigo: "613-0",
-          descricao: "Averbação",
-          quantidade: 1,
-          valor_unitario: null,
-          valor_total: 35.88
-        },
-        {
-          codigo: "413-0",
-          descricao: "Matrícula",
-          quantidade: 1,
-          valor_unitario: null,
-          valor_total: 2891.02
-        },
-        {
-          codigo: "813-0",
-          descricao: "Autenticação (por folha)",
-          quantidade: 1,
-          valor_unitario: null,
-          valor_total: 13.27
-        },
-        {
-          codigo: "513-0",
-          descricao: "Certidão",
-          quantidade: 1,
-          valor_unitario: null,
-          valor_total: 40.60
-        }
-      ],
-      totais: {
-        subtotal: 2980.77,
-        acrescimos: {
-          descricao_geral: "Acréscimo (cartão)",
-          valor: 0.00
-        },
-        descontos: {
-          descricao_geral: null,
-          valor: 0.00
-        },
-        total_final: 2980.77,
-        moeda: "BRL",
-        pago: true,
-        metodo_pagamento: "cartao"
-      },
-      pessoa_referida: {
-        nome: "Aldo Juneo Pereira Alves Oliveira",
-        cpf: "06882865635"
-      },
-      confidences: {
-        "estabelecimento.nome": 0.98,
-        "datas.emissao": 0.95,
-        "datas.previsao_entrega": 0.95,
-        "totais.total_final": 0.99
-      },
-      source_snippets: {
-        "estabelecimento.nome": "OFÍCIO DO 2º REGISTRO DE IMÓVEIS DE MONTES CLAROS/MG",
-        "datas.emissao": "Montes Claros, 22 de Agosto de 2025",
-        "datas.previsao_entrega": "OBS: Data de Previsão Legal de Entrega: 19 de Setembro de 2025",
-        "totais.total_final": "Total Final com Acrésc.: R$ 2.980,77",
-        "pago": "PAGO",
-        "documento.numero_recibo": "Recibo Nº 113466"
-      },
-      observacoes: "⚠️ Dados simulados - OpenAI não disponível. Valores baseados no recibo real fornecido."
-    }
-    
-    return {
-      success: true,
-      data: demoData,
-      confidence: 0.8, // Confiança melhorada para dados simulados inteligentes
-      note: '⚠️ Dados simulados - OpenAI não disponível',
-      source: 'demo'
-    }
-    
-  } catch (error) {
-    console.error('Erro no modo de demonstração:', error)
-    return { success: false, error: 'Erro na demonstração' }
-  }
-}
-
-// Função para analisar padrões na imagem e gerar dados mais realistas
-function analyzeImagePatterns(imageBase64: string) {
-  try {
-    // Decodificar base64 para analisar o conteúdo
-    const imageData = Buffer.from(imageBase64, 'base64')
-    const imageSize = imageData.length
-    
-    // Detectar tipo de documento baseado no tamanho e padrões
-    let documentType = 'generic'
-    let estimatedAmount = 0
-    let estimatedCategory = 'Outros'
-    
-    // Análise baseada no tamanho da imagem (proxy para complexidade)
-    if (imageSize > 50000) { // Imagem grande/complexa (como seu recibo)
-      documentType = 'complex_document'
-      // Para documentos complexos, usar faixa mais realista baseada no tamanho
-      const baseAmount = Math.round((imageSize / 1000) * 10) // Base no tamanho da imagem
-      estimatedAmount = Math.min(Math.max(baseAmount, 2000), 5000) // Entre R$ 2.000-5.000
-      estimatedCategory = 'Serviços Cartorários'
-    } else if (imageSize > 30000) { // Imagem média
-      documentType = 'medium_document'
-      estimatedAmount = Math.round((Math.random() * 500 + 50) * 100) / 100 // R$ 50-550
-      estimatedCategory = 'Compras'
-    } else { // Imagem pequena
-      documentType = 'simple_document'
-      estimatedAmount = Math.round((Math.random() * 100 + 10) * 100) / 100 // R$ 10-110
-      estimatedCategory = 'Alimentação'
-    }
-    
-    // Gerar data realista (últimos 30 dias)
-    const today = new Date()
-    const randomDaysAgo = Math.floor(Math.random() * 30)
-    const estimatedDate = new Date(today.getTime() - (randomDaysAgo * 24 * 60 * 60 * 1000))
-    
-    // Descrições baseadas no tipo de documento
-    const descriptions = {
-      'complex_document': ['Registro de Imóveis', 'Documento Oficial', 'Certidão'],
-      'medium_document': ['Compra de Produtos', 'Serviço Profissional', 'Taxa Administrativa'],
-      'simple_document': ['Almoço', 'Compra de Mercado', 'Transporte']
-    }
-    
-    // Estabelecimentos baseados no tipo
-    const merchants = {
-      'complex_document': ['Cartório de Registro', 'Prefeitura Municipal', 'Órgão Público'],
-      'medium_document': ['Loja Comercial', 'Prestador de Serviços', 'Empresa'],
-      'simple_document': ['Restaurante', 'Supermercado', 'Transportadora']
-    }
-    
-    // Itens baseados no tipo
-    const items = {
-      'complex_document': [
-        'Averbação',
-        'Registro de Imóveis', 
-        'Arquivamento por Folha',
-        'Certidão Oficial',
-        'Emolumentos',
-        'Taxa de Registro'
-      ],
-      'medium_document': ['Produto Principal', 'Taxa de Serviço', 'Frete'],
-      'simple_document': ['Item Principal', 'Taxa de Serviço', 'Adicional']
-    }
-    
-    const typeIndex = Math.floor(Math.random() * 3)
-    
-    return {
-      estimatedAmount,
-      estimatedDate: estimatedDate.toISOString().split('T')[0],
-      estimatedDescription: descriptions[documentType as keyof typeof descriptions][typeIndex],
-      estimatedItems: items[documentType as keyof typeof items],
-      estimatedMerchant: merchants[documentType as keyof typeof merchants][typeIndex],
-      estimatedCategory
-    }
-    
-  } catch (error) {
-    console.error('Erro na análise de padrões:', error)
-    // Fallback para dados básicos
-    return {
-      estimatedAmount: Math.round((Math.random() * 100 + 10) * 100) / 100,
-      estimatedDate: new Date().toISOString().split('T')[0],
-      estimatedDescription: 'Recibo de Serviço',
-      estimatedItems: ['Serviço Principal', 'Taxa Administrativa'],
-      estimatedMerchant: 'Estabelecimento Comercial',
-      estimatedCategory: 'Serviços'
-    }
   }
 } 
