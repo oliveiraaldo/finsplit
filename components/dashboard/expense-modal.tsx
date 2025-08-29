@@ -190,7 +190,7 @@ export function ExpenseModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl rounded-lg">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
@@ -233,7 +233,7 @@ export function ExpenseModal({
                   placeholder="Descrição da despesa"
                 />
               ) : (
-                <div className="p-3 bg-gray-50 rounded-md">
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
                   {expense.description}
                 </div>
               )}
@@ -250,7 +250,7 @@ export function ExpenseModal({
                   placeholder="0,00"
                 />
               ) : (
-                <div className="p-3 bg-gray-50 rounded-md font-semibold text-lg">
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md font-semibold text-lg">
                   {formatCurrency(expense.amount)}
                 </div>
               )}
@@ -265,7 +265,7 @@ export function ExpenseModal({
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 />
               ) : (
-                <div className="p-3 bg-gray-50 rounded-md flex items-center gap-2">
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
                   {formatDate(expense.date)}
                 </div>
@@ -296,7 +296,7 @@ export function ExpenseModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Pagador</Label>
-                <div className="p-3 bg-gray-50 rounded-md flex items-center gap-2">
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md flex items-center gap-2">
                   <User className="h-4 w-4" />
                   {expense.paidBy?.name || 'N/A'}
                 </div>
@@ -304,7 +304,7 @@ export function ExpenseModal({
 
               <div className="space-y-2">
                 <Label>Grupo</Label>
-                <div className="p-3 bg-gray-50 rounded-md flex items-center gap-2">
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md flex items-center gap-2">
                   <Tag className="h-4 w-4" />
                   {expense.group?.name || 'N/A'}
                 </div>
@@ -326,7 +326,7 @@ export function ExpenseModal({
                   ))}
                 </Select>
               ) : (
-                <div className="p-3 bg-gray-50 rounded-md flex items-center gap-2">
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md flex items-center gap-2">
                   <Tag className="h-4 w-4" />
                   {expense.category?.name || 'Sem categoria'}
                 </div>
@@ -341,7 +341,7 @@ export function ExpenseModal({
                 <Eye className="h-4 w-4" />
                 Dados Extraídos pela IA
               </Label>
-              <div className="p-3 bg-blue-50 rounded-md text-sm">
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md text-sm">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <span className="font-medium">Confiança:</span> {expense.aiConfidence || 'N/A'}
@@ -372,7 +372,7 @@ export function ExpenseModal({
               
               <div className="border rounded-lg overflow-hidden bg-white">
                 {/* Preview da imagem ou documento */}
-                <div className="bg-gray-50 p-4">
+                <div className="bg-gray-50 dark:bg-gray-800 p-4">
                   {expense.receiptUrl.includes('image') || 
                    expense.mediaType === 'image' || 
                    expense.receiptUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
@@ -410,7 +410,7 @@ export function ExpenseModal({
                 </div>
                 
                 {/* Links de ação */}
-                <div className="p-3 bg-gray-50 border-t flex items-center justify-between">
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 border-t flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     {expense.documentType && (
                       <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
