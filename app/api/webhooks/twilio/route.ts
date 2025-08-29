@@ -64,6 +64,8 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
   try {
     console.log('📥 Processando imagem do recibo...')
     console.log('🔗 URL da mídia:', mediaUrl)
+    console.log('👤 Usuário:', user.id, user.name)
+    console.log('🏢 Tenant:', user.tenant.id, user.tenant.name)
     
     // Baixar a mídia com autenticação Twilio
     const accountSid = process.env.TWILIO_ACCOUNT_SID
@@ -197,6 +199,8 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
       return NextResponse.json({ message: 'Despesa duplicada detectada, aguardando confirmação' })
     }
 
+    console.log('💾 Criando despesa no banco...')
+    
     // Criar despesa pendente
     const expense = await prisma.expense.create({
       data: {
@@ -217,6 +221,8 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
         categoryId: undefined
       }
     })
+    
+    console.log('✅ Despesa criada com sucesso:', expense.id)
 
     // Consumir crédito
     await prisma.tenant.update({
@@ -236,8 +242,11 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
       }
     })
 
+    console.log('📋 Buscando grupos do usuário...')
+    
     // Buscar grupos do usuário para seleção
     const userGroups = await getUserGroups(user.id, user.tenantId)
+    console.log('📋 Grupos encontrados:', userGroups.length)
     
     // Enviar confirmação com seleção de grupo
     let message = `✅ Recibo recebido!\n\n` +
@@ -285,8 +294,12 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
       }
     })
 
+        console.log('📤 Enviando mensagem final...')
+    console.log('📝 Conteúdo da mensagem:', message)
+    
     await sendWhatsAppMessage(from, message)
-
+    
+    console.log('✅ Processamento do recibo concluído com sucesso!')
     return NextResponse.json({ message: 'Recibo processado com sucesso' })
 
   } catch (error) {
@@ -442,6 +455,8 @@ async function handleTextMessage(from: string, body: string, user: any) {
 async function extractReceiptData(base64Image: string) {
   try {
     console.log('🤖 Tentando extração com OpenAI...')
+    console.log('📊 Tamanho da imagem (base64):', base64Image.length)
+    console.log('🔑 OpenAI API Key configurada:', !!process.env.OPENAI_API_KEY)
     
           const prompt = `
         Você é um motor de extração estruturada de dados de recibos, comprovantes bancários, notas fiscais e transferências brasileiras.
@@ -568,6 +583,9 @@ async function extractReceiptData(base64Image: string) {
 
 async function sendWhatsAppMessage(to: string, body: string) {
   try {
+    console.log('📱 Preparando envio de mensagem WhatsApp...')
+    console.log('🔑 Twilio configurado:', !!process.env.TWILIO_ACCOUNT_SID && !!process.env.TWILIO_AUTH_TOKEN && !!process.env.TWILIO_PHONE_NUMBER)
+    
     // Formatar número para WhatsApp
     const formattedFrom = `whatsapp:${process.env.TWILIO_PHONE_NUMBER}`
     const formattedTo = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`
