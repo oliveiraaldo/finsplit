@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { AddMemberModal } from '@/components/dashboard/add-member-modal'
+import { EditMemberModal } from '@/components/dashboard/edit-member-modal'
 
 interface GroupMember {
   id: string
@@ -52,6 +53,9 @@ export default function GroupDetailsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'expenses' | 'members'>('overview')
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false)
+  const [isEditMemberModalOpen, setIsEditMemberModalOpen] = useState(false)
+  const [selectedMember, setSelectedMember] = useState<any>(null)
+  const [currentUserRole, setCurrentUserRole] = useState<string>('')
 
   useEffect(() => {
     const fetchGroupDetails = async () => {
@@ -60,6 +64,14 @@ export default function GroupDetailsPage() {
         if (response.ok) {
           const data = await response.json()
           setGroup(data)
+          
+          // Determinar o papel do usuário atual no grupo
+          // Assumindo que vamos adicionar o userId na sessão ou resposta
+          // Por agora, vamos fazer uma busca simples nos membros
+          const currentUser = data.members.find((member: any) => member.isCurrentUser)
+          if (currentUser) {
+            setCurrentUserRole(currentUser.role)
+          }
         } else {
           console.error('Erro ao buscar detalhes do grupo:', response.statusText)
         }
@@ -83,6 +95,25 @@ export default function GroupDetailsPage() {
       })
     }
   }
+
+  const handleMemberUpdated = (updatedMember: any) => {
+    if (group) {
+      setGroup({
+        ...group,
+        members: group.members.map(member => 
+          member.id === updatedMember.id ? updatedMember : member
+        )
+      })
+    }
+  }
+
+  const handleEditMember = (member: any) => {
+    setSelectedMember(member)
+    setIsEditMemberModalOpen(true)
+  }
+
+  // Verificar se o usuário atual pode adicionar membros (ADMIN ou OWNER)
+  const canAddMembers = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN'
 
   if (isLoading) {
     return (
@@ -134,13 +165,15 @@ export default function GroupDetailsPage() {
           </div>
           
           <div className="flex gap-3">
-            <Button 
-              variant="outline"
-              onClick={() => setIsAddMemberModalOpen(true)}
-            >
-              <UserPlus className="mr-2 h-4 w-4" />
-              Adicionar Membro
-            </Button>
+            {canAddMembers && (
+              <Button 
+                variant="outline"
+                onClick={() => setIsAddMemberModalOpen(true)}
+              >
+                <UserPlus className="mr-2 h-4 w-4" />
+                Adicionar Membro
+              </Button>
+            )}
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               Nova Despesa
@@ -334,10 +367,12 @@ export default function GroupDetailsPage() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Membros do Grupo</span>
-                <Button onClick={() => setIsAddMemberModalOpen(true)}>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Adicionar Membro
-                </Button>
+                {canAddMembers && (
+                  <Button onClick={() => setIsAddMemberModalOpen(true)}>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Adicionar Membro
+                  </Button>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -370,9 +405,16 @@ export default function GroupDetailsPage() {
                         </div>
                       </div>
                       
-                      <Button variant="outline" size="sm">
-                        <Settings className="h-4 w-4" />
-                      </Button>
+                      {(canAddMembers || member.id === 'currentUserId') && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleEditMember(member)}
+                          title="Editar permissões"
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -388,6 +430,18 @@ export default function GroupDetailsPage() {
         isOpen={isAddMemberModalOpen}
         onClose={() => setIsAddMemberModalOpen(false)}
         onMemberAdded={handleMemberAdded}
+      />
+
+      {/* Modal de Editar Membro */}
+      <EditMemberModal
+        groupId={groupId}
+        member={selectedMember}
+        isOpen={isEditMemberModalOpen}
+        onClose={() => {
+          setIsEditMemberModalOpen(false)
+          setSelectedMember(null)
+        }}
+        onMemberUpdated={handleMemberUpdated}
       />
     </DashboardLayout>
   )
