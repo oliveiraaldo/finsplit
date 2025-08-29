@@ -96,20 +96,10 @@ export function AddMemberModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl rounded-lg">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5" />
-              Adicionar Membro
-            </DialogTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              disabled={isLoading}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            Adicionar Membro
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">

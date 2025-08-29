@@ -102,7 +102,8 @@ export async function GET(
         const balance = totalPaid - averagePerPerson
 
         return {
-          id: member.user.id,
+          id: member.id, // ID do GroupMember (necessário para edição)
+          userId: member.user.id, // ID do usuário
           name: member.user.name,
           role: member.role,
           permission: member.permission,

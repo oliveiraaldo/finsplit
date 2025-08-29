@@ -237,14 +237,6 @@ export function ExpenseModal({
                   Editar
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onClose}
-                disabled={isLoading}
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </DialogHeader>

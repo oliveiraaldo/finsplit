@@ -20,9 +20,12 @@ import { EditMemberModal } from '@/components/dashboard/edit-member-modal'
 
 interface GroupMember {
   id: string
+  userId: string
   name: string
   role: string
+  permission: string
   balance: number
+  isCurrentUser: boolean
 }
 
 interface GroupExpense {
@@ -101,7 +104,11 @@ export default function GroupDetailsPage() {
       setGroup({
         ...group,
         members: group.members.map(member => 
-          member.id === updatedMember.id ? updatedMember : member
+          member.id === updatedMember.id ? {
+            ...member,
+            role: updatedMember.role,
+            permission: updatedMember.permission
+          } : member
         )
       })
     }
@@ -405,7 +412,7 @@ export default function GroupDetailsPage() {
                         </div>
                       </div>
                       
-                      {(canAddMembers || member.id === 'currentUserId') && (
+                      {(canAddMembers || member.isCurrentUser) && (
                         <Button 
                           variant="outline" 
                           size="sm"
