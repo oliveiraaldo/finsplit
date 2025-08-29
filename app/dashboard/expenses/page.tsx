@@ -43,26 +43,38 @@ export default function ExpensesPage() {
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([])
   const [selectedExpense, setSelectedExpense] = useState<any>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [categories, setCategories] = useState<any[]>([])
 
   useEffect(() => {
-    const fetchExpenses = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/dashboard/expenses')
-        if (response.ok) {
-          const data = await response.json()
-          setExpenses(data)
-          setFilteredExpenses(data)
+        const [expensesRes, categoriesRes] = await Promise.all([
+          fetch('/api/dashboard/expenses'),
+          fetch('/api/dashboard/categories')
+        ])
+        
+        if (expensesRes.ok) {
+          const expensesData = await expensesRes.json()
+          setExpenses(expensesData)
+          setFilteredExpenses(expensesData)
         } else {
-          console.error('Erro ao buscar despesas:', response.statusText)
+          console.error('Erro ao buscar despesas:', expensesRes.statusText)
+        }
+
+        if (categoriesRes.ok) {
+          const categoriesData = await categoriesRes.json()
+          setCategories(categoriesData)
+        } else {
+          console.error('Erro ao buscar categorias:', categoriesRes.statusText)
         }
       } catch (error) {
-        console.error('Erro ao carregar despesas:', error)
+        console.error('Erro ao carregar dados:', error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchExpenses()
+    fetchData()
   }, [])
 
   // Filtrar despesas baseado no termo de busca e status
@@ -438,6 +450,7 @@ export default function ExpensesPage() {
         }}
         onUpdate={handleUpdateExpense}
         onDelete={handleDeleteExpense}
+        categories={categories}
       />
     </DashboardLayout>
   )

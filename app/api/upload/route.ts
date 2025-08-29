@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { writeFile, mkdir } from 'fs/promises'
-import path from 'path'
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,33 +61,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Gerar nome único para o arquivo
-    const timestamp = Date.now()
-    const randomString = Math.random().toString(36).substring(2, 15)
-    const fileExtension = path.extname(file.name)
-    const fileName = `${timestamp}-${randomString}${fileExtension}`
-    
-    // Criar diretório se não existir
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'receipts')
-    try {
-      await mkdir(uploadDir, { recursive: true })
-    } catch (error) {
-      // Diretório já existe, tudo bem
-    }
-
-    // Salvar arquivo
-    const filePath = path.join(uploadDir, fileName)
+    // Converter arquivo para base64 para salvar no banco
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
+    const base64Data = buffer.toString('base64')
     
-    await writeFile(filePath, buffer)
+    // Criar registro no banco para o arquivo
+    const uploadedFile = await prisma.uploadedFile.create({
+      data: {
+        originalName: file.name,
+        mimeType: file.type,
+        size: file.size,
+        base64Data: base64Data,
+        tenantId: user.tenant.id,
+        uploadedById: user.id
+      }
+    })
 
-    // URL pública do arquivo
-    const fileUrl = `/uploads/receipts/${fileName}`
+    // URL para acessar o arquivo via API
+    const fileUrl = `/api/files/${uploadedFile.id}`
 
     console.log('📎 Arquivo salvo:', {
+      id: uploadedFile.id,
       originalName: file.name,
-      fileName,
       size: file.size,
       type: file.type,
       url: fileUrl

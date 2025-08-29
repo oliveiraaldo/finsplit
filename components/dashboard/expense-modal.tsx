@@ -27,6 +27,7 @@ interface ExpenseModalProps {
   onClose: () => void
   onUpdate: (expense: any) => void
   onDelete: (id: string) => void
+  categories: Array<{id: string; name: string; icon: string; color: string}>
 }
 
 interface Category {
@@ -41,11 +42,11 @@ export function ExpenseModal({
   isOpen, 
   onClose, 
   onUpdate, 
-  onDelete 
+  onDelete,
+  categories 
 }: ExpenseModalProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [categories, setCategories] = useState<Category[]>([])
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
@@ -71,22 +72,7 @@ export function ExpenseModal({
   }, [expense])
 
   useEffect(() => {
-    // Buscar categorias disponíveis
-    const fetchCategories = async () => {
-      try {
-        const response = await fetch('/api/dashboard/categories')
-        if (response.ok) {
-          const data = await response.json()
-          setCategories(data)
-        }
-      } catch (error) {
-        console.error('Erro ao buscar categorias:', error)
-      }
-    }
-
-    if (isOpen) {
-      fetchCategories()
-    }
+    // As categorias já vem como prop, não precisa buscar
   }, [isOpen])
 
   const handleSave = async () => {
