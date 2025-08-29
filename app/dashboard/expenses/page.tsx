@@ -25,7 +25,7 @@ import { ExpenseModal } from '@/components/dashboard/expense-modal'
 interface Expense {
   id: string
   description: string
-  amount: number
+  amount: number | string
   date: string
   status: 'PENDING' | 'CONFIRMED' | 'REJECTED'
   paidBy: string
@@ -125,7 +125,7 @@ export default function ExpensesPage() {
         e.id === updatedExpense.id ? {
           ...e,
           description: updatedExpense.description,
-          amount: updatedExpense.amount,
+          amount: parseFloat(updatedExpense.amount.toString()) || 0,
           date: updatedExpense.date,
           status: updatedExpense.status,
           category: updatedExpense.category,
@@ -179,7 +179,7 @@ export default function ExpensesPage() {
     const headers = ['Descrição', 'Valor', 'Data', 'Status', 'Pago por', 'Grupo', 'Categoria']
     const csvData = filteredExpenses.map(expense => [
       expense.description,
-      expense.amount.toFixed(2),
+      (parseFloat(expense.amount.toString()) || 0).toFixed(2),
       new Date(expense.date).toLocaleDateString('pt-BR'),
       expense.status,
       expense.paidBy,
@@ -284,7 +284,7 @@ export default function ExpensesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                R$ {expenses.reduce((sum, expense) => sum + expense.amount, 0).toFixed(2)}
+                R$ {expenses.reduce((sum, expense) => sum + (parseFloat(expense.amount.toString()) || 0), 0).toFixed(2)}
               </div>
             </CardContent>
           </Card>
@@ -351,7 +351,7 @@ export default function ExpensesPage() {
                     <div className="flex items-center gap-2 ml-4">
                       <div className="text-right">
                         <div className="text-2xl font-bold text-gray-900">
-                          R$ {expense.amount.toFixed(2)}
+                          R$ {(parseFloat(expense.amount.toString()) || 0).toFixed(2)}
                         </div>
                       </div>
                       
