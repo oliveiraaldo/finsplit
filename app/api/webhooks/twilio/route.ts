@@ -149,7 +149,7 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
           connect: { id: user.id }
         },
         group: {
-          connect: { id: (await getOrCreateDefaultGroup(user.tenantId)).id }
+          connect: { id: (await getOrCreateDefaultGroup(user.tenantId, user.id)).id }
         },
         categoryId: undefined
       }
@@ -415,7 +415,7 @@ async function sendWhatsAppMessage(to: string, body: string) {
 }
 
 // Função para criar ou obter grupo padrão
-async function getOrCreateDefaultGroup(tenantId: string) {
+async function getOrCreateDefaultGroup(tenantId: string, userId: string) {
   try {
     // Tentar encontrar um grupo existente
     let group = await prisma.group.findFirst({
@@ -428,10 +428,36 @@ async function getOrCreateDefaultGroup(tenantId: string) {
         data: {
           name: 'Despesas Gerais',
           description: 'Grupo padrão para despesas via WhatsApp',
-          tenantId
+          tenantId,
+          members: {
+            create: {
+              userId,
+              role: 'ADMIN'
+            }
+          }
         }
       })
-      console.log('✅ Grupo padrão criado:', group.name)
+      console.log('✅ Grupo padrão criado:', group.name, 'com usuário:', userId)
+    } else {
+      // Verificar se o usuário já é membro
+      const existingMember = await prisma.groupMember.findFirst({
+        where: {
+          groupId: group.id,
+          userId
+        }
+      })
+
+      // Se não for membro, adicionar
+      if (!existingMember) {
+        await prisma.groupMember.create({
+          data: {
+            groupId: group.id,
+            userId,
+            role: 'MEMBER'
+          }
+        })
+        console.log('✅ Usuário adicionado ao grupo:', userId)
+      }
     }
 
     return group
