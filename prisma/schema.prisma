@@ -58,13 +58,14 @@ model Tenant {
   credits      Int @default(0)
   
   // Relacionamentos
-  users       User[]
-  groups      Group[]
-  categories  Category[]
+  users         User[]
+  groups        Group[]
+  ownedGroups   Group[] @relation("GroupOwner")
+  categories    Category[]
   subscriptions Subscription[]
   
   // Auditoria
-  auditLogs   AuditLog[]
+  auditLogs     AuditLog[]
 
   @@map("tenants")
 }
@@ -77,23 +78,27 @@ model Group {
   updatedAt   DateTime @updatedAt
 
   // Relacionamentos
-  tenantId    String
-  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId        String  // Tenant que "possui" o grupo
+  tenant          Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   
-  members     GroupMember[]
-  expenses    Expense[]
-  categories  Category[]
+  ownerTenantId   String? // Tenant que paga pelo plano deste grupo (opcional para migração)
+  ownerTenant     Tenant? @relation("GroupOwner", fields: [ownerTenantId], references: [id], onDelete: Cascade)
+  
+  members         GroupMember[]
+  expenses        Expense[]
+  categories      Category[]
   
   // Auditoria
-  auditLogs   AuditLog[]
+  auditLogs       AuditLog[]
 
   @@map("groups")
 }
 
 model GroupMember {
-  id        String   @id @default(cuid())
-  role      MemberRole @default(MEMBER)
-  joinedAt  DateTime @default(now())
+  id         String   @id @default(cuid())
+  role       MemberRole @default(MEMBER)
+  permission MemberPermission @default(VIEW_ONLY)
+  joinedAt   DateTime @default(now())
   
   // Relacionamentos
   userId    String
@@ -233,6 +238,11 @@ enum MemberRole {
   OWNER
   ADMIN
   MEMBER
+}
+
+enum MemberPermission {
+  VIEW_ONLY
+  FULL_ACCESS
 }
 
 enum PlanType {

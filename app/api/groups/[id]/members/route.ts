@@ -105,7 +105,8 @@ export async function POST(
       data: {
         userId: user.id,
         groupId: groupId,
-        role: body.role || 'MEMBER'
+        role: body.role || 'MEMBER',
+        permission: body.permission || 'VIEW_ONLY'
       },
       include: {
         user: {
@@ -128,7 +129,8 @@ export async function POST(
         details: { 
           memberId: user.id,
           memberName: user.name,
-          role: body.role || 'MEMBER'
+          role: body.role || 'MEMBER',
+          permission: body.permission || 'VIEW_ONLY'
         },
         tenantId,
         userId: session.user.id
@@ -140,6 +142,7 @@ export async function POST(
       id: user.id,
       name: user.name,
       role: body.role || 'MEMBER',
+      permission: body.permission || 'VIEW_ONLY',
       balance: 0, // Saldo inicial
       email: user.email,
       phone: user.phone

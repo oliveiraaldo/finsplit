@@ -105,6 +105,7 @@ export async function GET(
           id: member.user.id,
           name: member.user.name,
           role: member.role,
+          permission: member.permission,
           balance: Number(balance.toFixed(2))
         }
       })

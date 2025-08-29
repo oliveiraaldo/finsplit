@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { PermissionChecker, UserGroupContext } from '@/lib/permissions'
 
 // GET - Buscar despesa específica
 export async function GET(
@@ -21,11 +22,16 @@ export async function GET(
     const expenseId = params.id
     const tenantId = session.user.tenantId
 
+    // Verificar se a despesa existe e se o usuário tem acesso ao grupo
     const expense = await prisma.expense.findFirst({
       where: {
         id: expenseId,
         group: {
-          tenantId
+          members: {
+            some: {
+              userId: session.user.id
+            }
+          }
         }
       },
       include: {

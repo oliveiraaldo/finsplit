@@ -27,7 +27,8 @@ export function AddMemberModal({
     name: '',
     email: '',
     phone: '',
-    role: 'MEMBER'
+    role: 'MEMBER',
+    permission: 'VIEW_ONLY'
   })
 
   const handleSave = async () => {
@@ -48,7 +49,8 @@ export function AddMemberModal({
         name: formData.name.trim(),
         email: formData.email.trim() || null,
         phone: formData.phone.trim() || null,
-        role: formData.role
+        role: formData.role,
+        permission: formData.permission
       }
 
       console.log('👥 Adicionando membro:', dataToSend)
@@ -73,7 +75,8 @@ export function AddMemberModal({
           name: '',
           email: '',
           phone: '',
-          role: 'MEMBER'
+          role: 'MEMBER',
+          permission: 'VIEW_ONLY'
         })
         toast.success('Membro adicionado com sucesso!')
       } else {
@@ -169,6 +172,22 @@ export function AddMemberModal({
               <option value="MEMBER">Membro</option>
               <option value="ADMIN">Administrador</option>
             </Select>
+          </div>
+
+          {/* Permissões */}
+          <div className="space-y-2">
+            <Label htmlFor="permission">Permissões</Label>
+            <Select
+              value={formData.permission}
+              onChange={(e) => setFormData({ ...formData, permission: e.target.value })}
+              disabled={isLoading}
+            >
+              <option value="VIEW_ONLY">Somente visualizar</option>
+              <option value="FULL_ACCESS">Visualizar, editar e apagar</option>
+            </Select>
+            <p className="text-xs text-gray-500">
+              Define o que o membro pode fazer com as despesas do grupo
+            </p>
           </div>
 
           {/* Ações */}
