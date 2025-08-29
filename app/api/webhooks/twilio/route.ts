@@ -284,58 +284,69 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
 
 async function handleTextMessage(from: string, body: string, user: any) {
   const text = body.toLowerCase().trim()
+  
+  console.log('📱 Processando mensagem de texto:', text)
+  console.log('👤 Usuário:', user.id, user.name)
 
   // Verificar se o usuário está em processo de seleção de grupo
   const userState = await getUserState(user.id)
+  console.log('🔍 Estado atual do usuário:', userState)
   
   if (userState && userState.action === 'SELECTING_GROUP') {
+    console.log('📋 Usuário selecionando grupo...')
     return await handleGroupSelection(from, text, user, userState)
   }
 
   if (text === 'sim' || text === 'yes' || text === 'confirmar') {
+    console.log('✅ Usuário confirmando despesa...')
     // Verificar se o usuário está aguardando confirmação com grupo selecionado
-    const userState = await getUserState(user.id)
+    const currentUserState = await getUserState(user.id)
     
-    if (userState && userState.action === 'WAITING_CONFIRMATION') {
-      // Criar despesa no grupo selecionado
-      const expense = await prisma.expense.create({
-        data: {
-          description: userState.pendingExpenseData.description,
-          amount: userState.pendingExpenseData.amount,
-          date: userState.pendingExpenseData.date,
-          status: 'CONFIRMED',
-          receiptUrl: userState.pendingExpenseData.mediaUrl,
-          receiptData: userState.pendingExpenseData.receiptData,
-          aiExtracted: true,
-          aiConfidence: 0.95,
-          paidBy: {
-            connect: { id: user.id }
-          },
-          group: {
-            connect: { id: userState.groupId }
-          },
-          categoryId: undefined
-        }
-      })
+    if (currentUserState && currentUserState.action === 'WAITING_CONFIRMATION') {
+              console.log('🎯 Criando despesa no grupo:', currentUserState.groupId)
+        console.log('📊 Dados da despesa:', currentUserState.pendingExpenseData)
+        
+        // Criar despesa no grupo selecionado
+        const expense = await prisma.expense.create({
+          data: {
+            description: currentUserState.pendingExpenseData.description,
+            amount: currentUserState.pendingExpenseData.amount,
+            date: currentUserState.pendingExpenseData.date,
+            status: 'CONFIRMED',
+            receiptUrl: currentUserState.pendingExpenseData.mediaUrl,
+            receiptData: currentUserState.pendingExpenseData.receiptData,
+            aiExtracted: true,
+            aiConfidence: 0.95,
+            paidBy: {
+              connect: { id: user.id }
+            },
+            group: {
+              connect: { id: currentUserState.groupId }
+            },
+            categoryId: undefined
+          }
+        })
+        
+        console.log('✅ Despesa criada com sucesso:', expense.id)
 
-      // Log de auditoria
-      await prisma.auditLog.create({
-        data: {
-          action: 'EXPENSE_CONFIRMED_WHATSAPP',
-          entity: 'EXPENSE',
-          entityId: expense.id,
-          details: { confirmedVia: 'whatsapp', groupId: userState.groupId },
-          tenantId: user.tenantId,
-          userId: user.id
-        }
-      })
+        // Log de auditoria
+        await prisma.auditLog.create({
+          data: {
+            action: 'EXPENSE_CONFIRMED_WHATSAPP',
+            entity: 'EXPENSE',
+            entityId: expense.id,
+            details: { confirmedVia: 'whatsapp', groupId: currentUserState.groupId },
+            tenantId: user.tenantId,
+            userId: user.id
+          }
+        })
 
-      // Enviar link da planilha
-      const dashboardUrl = `${process.env.NEXTAUTH_URL}/dashboard/groups/${userState.groupId}`
-      await sendWhatsAppMessage(from, `✅ Despesa confirmada no grupo!\n\n📊 Veja na planilha: ${dashboardUrl}`)
-      
-      // Limpar estado do usuário
-      await setUserState(user.id, null)
+        // Enviar link da planilha
+        const dashboardUrl = `${process.env.NEXTAUTH_URL}/dashboard/groups/${currentUserState.groupId}`
+        await sendWhatsAppMessage(from, `✅ Despesa confirmada no grupo!\n\n📊 Veja na planilha: ${dashboardUrl}`)
+        
+        // Limpar estado do usuário
+        await setUserState(user.id, null)
       
     } else {
       // Confirmar despesa pendente (comportamento antigo)
@@ -668,10 +679,21 @@ async function handleGroupSelection(from: string, text: string, user: any, userS
       // Selecionar grupo existente
       const selectedGroup = userState.groups[selection - 1]
       
+      console.log('🎯 Grupo selecionado:', selectedGroup.name, 'ID:', selectedGroup.id)
+      
       await sendWhatsAppMessage(from, `✅ Grupo selecionado: "${selectedGroup.name}"\n\nAgora responda "sim" para confirmar a despesa neste grupo.`)
       
       // Atualizar estado do usuário para aguardar confirmação
-      await setUserState(user.id, { action: 'WAITING_CONFIRMATION', groupId: selectedGroup.id })
+      const newState = { 
+        action: 'WAITING_CONFIRMATION', 
+        groupId: selectedGroup.id,
+        pendingExpenseData: userState.pendingExpenseData // Manter dados da despesa
+      }
+      
+      console.log('🔄 Definindo novo estado:', newState)
+      await setUserState(user.id, newState)
+      
+      console.log('✅ Estado atualizado, aguardando confirmação...')
       
     } else {
       await sendWhatsAppMessage(from, `❌ Número inválido. Digite um número entre 1 e ${userState.groups.length}, ou "0" para novo grupo.`)
