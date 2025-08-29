@@ -134,6 +134,69 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
       return NextResponse.json({ message: 'Falha na extração: ' + extractionResult.error })
     }
 
+    // Validar campos obrigatórios
+    const validation = validateRequiredFields(extractionResult.data)
+    if (!validation.isValid) {
+      const missingFields = validation.missing.map(field => {
+        const fieldNames = {
+          local: 'Local/Estabelecimento',
+          data: 'Data',
+          valor: 'Valor',
+          categoria: 'Categoria'
+        }
+        return fieldNames[field as keyof typeof fieldNames] || field
+      }).join(', ')
+
+      const message = `❌ Dados obrigatórios não identificados:\n\n` +
+        `Campos faltando: ${missingFields}\n\n` +
+        `Por favor, envie uma imagem mais clara ou informe os dados manualmente:\n` +
+        `"local: [nome do estabelecimento]"\n` +
+        `"data: [data no formato DD/MM/AAAA]"\n` +
+        `"valor: [valor total]"\n` +
+        `"categoria: [categoria da despesa]"`
+
+      await sendWhatsAppMessage(from, message)
+      return NextResponse.json({ message: 'Campos obrigatórios não identificados' })
+    }
+
+    // Verificar duplicatas
+    const duplicate = await checkDuplicateExpense(user.id, extractionResult.data)
+    if (duplicate) {
+      const duplicateMessage = `⚠️ ATENÇÃO: Despesa similar já cadastrada!\n\n` +
+        `📋 Dados existentes:\n` +
+        `🏪 Local: ${duplicate.description}\n` +
+        `💰 Valor: R$ ${duplicate.amount}\n` +
+        `📅 Data: ${duplicate.date.toLocaleDateString('pt-BR')}\n` +
+        `📊 Status: ${duplicate.status === 'CONFIRMED' ? 'Confirmada' : 'Pendente'}\n\n` +
+        `Deseja cadastrar mesmo assim?\n` +
+        `Responda "sim" para confirmar ou "não" para cancelar.`
+
+      await sendWhatsAppMessage(from, duplicateMessage)
+      
+      // Salvar despesa como pendente para confirmação
+      const expense = await prisma.expense.create({
+        data: {
+          description: extractionResult.data.estabelecimento?.nome || extractionResult.data.merchant,
+          amount: extractionResult.data.totais?.total_final || extractionResult.data.amount,
+          date: extractionResult.data.datas?.emissao ? new Date(extractionResult.data.datas.emissao) : new Date(extractionResult.data.date),
+          status: 'PENDING',
+          receiptUrl: mediaUrl,
+          receiptData: extractionResult.data,
+          aiExtracted: true,
+          aiConfidence: extractionResult.confidence,
+          paidBy: {
+            connect: { id: user.id }
+          },
+          group: {
+            connect: { id: (await getOrCreateDefaultGroup(user.tenantId, user.id)).id }
+          },
+          categoryId: undefined
+        }
+      })
+
+      return NextResponse.json({ message: 'Despesa duplicada detectada, aguardando confirmação' })
+    }
+
     // Criar despesa pendente
     const expense = await prisma.expense.create({
       data: {
@@ -173,13 +236,27 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
       }
     })
 
-    // Enviar confirmação
-    const message = `✅ Recibo recebido!\n\n` +
+    // Buscar grupos do usuário para seleção
+    const userGroups = await getUserGroups(user.id, user.tenantId)
+    
+    // Enviar confirmação com seleção de grupo
+    let message = `✅ Recibo recebido!\n\n` +
       `🏪 Estabelecimento: ${extractionResult.data.estabelecimento?.nome || 'Não identificado'}\n` +
       `💰 Valor: R$ ${extractionResult.data.totais?.total_final || extractionResult.data.amount || 0}\n` +
       `📅 Data: ${extractionResult.data.datas?.emissao || extractionResult.data.date || 'Não identificada'}\n` +
-      `📄 Recibo: ${extractionResult.data.documento?.numero_recibo || 'Não identificado'}\n\n` +
-      `Responda "sim" para confirmar ou "não" para rejeitar.`
+      `📄 Recibo: ${extractionResult.data.documento?.numero_recibo || 'Não identificado'}\n\n`
+
+    if (userGroups.length > 0) {
+      message += `📋 Selecione o grupo:\n`
+      userGroups.forEach((group, index) => {
+        message += `${index + 1}. ${group.name}\n`
+      })
+      message += `0. Criar novo grupo\n\n`
+      message += `Responda com o número do grupo ou "0" para novo grupo.`
+    } else {
+      message += `📋 Grupo: Despesas Gerais (padrão)\n\n` +
+        `Responda "sim" para confirmar ou "não" para rejeitar.`
+    }
 
     await sendWhatsAppMessage(from, message)
 
@@ -415,6 +492,71 @@ async function sendWhatsAppMessage(to: string, body: string) {
 }
 
 // Função para criar ou obter grupo padrão
+// Função para verificar duplicatas
+async function checkDuplicateExpense(userId: string, data: any) {
+  try {
+    const duplicate = await prisma.expense.findFirst({
+      where: {
+        paidById: userId,
+        amount: data.totais?.total_final || data.amount,
+        description: data.estabelecimento?.nome || data.merchant,
+        date: data.datas?.emissao ? new Date(data.datas.emissao) : new Date(data.date),
+        status: { in: ['CONFIRMED', 'PENDING'] }
+      }
+    })
+
+    return duplicate
+  } catch (error) {
+    console.error('❌ Erro ao verificar duplicata:', error)
+    return null
+  }
+}
+
+// Função para validar campos obrigatórios
+function validateRequiredFields(data: any) {
+  const required = {
+    local: data.estabelecimento?.nome || data.merchant,
+    data: data.datas?.emissao || data.date,
+    valor: data.totais?.total_final || data.amount,
+    pagador: true, // Sempre disponível (usuário atual)
+    categoria: data.category
+  }
+
+  const missing = Object.entries(required)
+    .filter(([key, value]) => !value)
+    .map(([key]) => key)
+
+  return {
+    isValid: missing.length === 0,
+    missing,
+    data: required
+  }
+}
+
+// Função para listar grupos do usuário
+async function getUserGroups(userId: string, tenantId: string) {
+  try {
+    const groups = await prisma.group.findMany({
+      where: {
+        tenantId,
+        members: {
+          some: { userId }
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true
+      }
+    })
+
+    return groups
+  } catch (error) {
+    console.error('❌ Erro ao buscar grupos:', error)
+    return []
+  }
+}
+
 async function getOrCreateDefaultGroup(tenantId: string, userId: string) {
   try {
     // Tentar encontrar um grupo existente
