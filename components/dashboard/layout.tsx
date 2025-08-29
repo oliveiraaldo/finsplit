@@ -13,7 +13,6 @@ import {
   LogOut,
   Menu,
   X,
-  Plus,
   Bot
 } from 'lucide-react'
 
@@ -135,14 +134,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
             <div className="flex flex-1" />
-            <div className="flex items-center gap-x-4 lg:gap-x-6">
-              <Link href="/dashboard/groups/new">
-                <Button size="sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Novo Grupo
-                </Button>
-              </Link>
-            </div>
           </div>
         </div>
 
