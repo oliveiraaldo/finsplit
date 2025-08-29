@@ -273,16 +273,11 @@ export function ExpenseModal({
               {isEditing ? (
                 <Select
                   value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PENDING">Pendente</SelectItem>
-                    <SelectItem value="CONFIRMED">Confirmada</SelectItem>
-                    <SelectItem value="REJECTED">Rejeitada</SelectItem>
-                  </SelectContent>
+                  <option value="PENDING">Pendente</option>
+                  <option value="CONFIRMED">Confirmada</option>
+                  <option value="REJECTED">Rejeitada</option>
                 </Select>
               ) : (
                 <div className={`p-3 rounded-md text-center font-medium ${getStatusColor(expense.status)}`}>
@@ -317,19 +312,14 @@ export function ExpenseModal({
               {isEditing ? (
                 <Select
                   value={formData.categoryId}
-                  onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
+                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Sem categoria</SelectItem>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.icon} {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                  <option value="">Sem categoria</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.icon} {category.name}
+                    </option>
+                  ))}
                 </Select>
               ) : (
                 <div className="p-3 bg-gray-50 rounded-md flex items-center gap-2">
