@@ -31,8 +31,7 @@ async function main() {
       password: hashedPassword,
       phone: '+5511999999999',
       role: 'ADMIN',
-      emailNotifications: true,
-      whatsappNotifications: true,
+
       tenantId: tenant.id
     }
   })
@@ -47,51 +46,119 @@ async function main() {
       password: hashedPassword,
       phone: '+5511888888888',
       role: 'CLIENT',
-      emailNotifications: false,
-      whatsappNotifications: true,
+
       tenantId: tenant.id
     }
   })
 
   console.log('✅ Usuário cliente criado:', clientUser.email)
 
-  // Criar grupo de exemplo
-  const group = await prisma.group.create({
-    data: {
-      name: 'Viagem para São Paulo',
-      description: 'Grupo para dividir despesas da viagem de negócios',
-      tenantId: tenant.id
-    }
+  // Criar grupos pré-definidos
+  const groups = await prisma.group.createMany({
+    data: [
+      {
+        name: 'Alimentação',
+        description: 'Despesas com comida, restaurantes, mercado',
+        tenantId: tenant.id
+      },
+      {
+        name: 'Transporte',
+        description: 'Uber, táxi, combustível, passagens',
+        tenantId: tenant.id
+      },
+      {
+        name: 'Lazer',
+        description: 'Entretenimento, cinema, shows, viagens',
+        tenantId: tenant.id
+      },
+      {
+        name: 'Moradia',
+        description: 'Aluguel, contas, manutenção',
+        tenantId: tenant.id
+      },
+      {
+        name: 'Viagem para São Paulo',
+        description: 'Grupo para dividir despesas da viagem de negócios',
+        tenantId: tenant.id
+      }
+    ]
   })
 
-  console.log('✅ Grupo criado:', group.name)
+  console.log('✅ Grupos pré-definidos criados')
 
-  // Adicionar usuários ao grupo
+  // Buscar grupos para adicionar membros
+  const alimentacaoGroup = await prisma.group.findFirst({ where: { name: 'Alimentação' } })
+  const transporteGroup = await prisma.group.findFirst({ where: { name: 'Transporte' } })
+  const lazerGroup = await prisma.group.findFirst({ where: { name: 'Lazer' } })
+  const moradiaGroup = await prisma.group.findFirst({ where: { name: 'Moradia' } })
+  const viagemGroup = await prisma.group.findFirst({ where: { name: 'Viagem para São Paulo' } })
+
+  // Adicionar usuários aos grupos
   await prisma.groupMember.createMany({
     data: [
       {
         userId: adminUser.id,
-        groupId: group.id,
+        groupId: alimentacaoGroup!.id,
         role: 'OWNER'
       },
       {
         userId: clientUser.id,
-        groupId: group.id,
+        groupId: alimentacaoGroup!.id,
+        role: 'MEMBER'
+      },
+      {
+        userId: adminUser.id,
+        groupId: transporteGroup!.id,
+        role: 'OWNER'
+      },
+      {
+        userId: clientUser.id,
+        groupId: transporteGroup!.id,
+        role: 'MEMBER'
+      },
+      {
+        userId: adminUser.id,
+        groupId: lazerGroup!.id,
+        role: 'OWNER'
+      },
+      {
+        userId: clientUser.id,
+        groupId: lazerGroup!.id,
+        role: 'MEMBER'
+      },
+      {
+        userId: adminUser.id,
+        groupId: moradiaGroup!.id,
+        role: 'OWNER'
+      },
+      {
+        userId: clientUser.id,
+        groupId: moradiaGroup!.id,
+        role: 'MEMBER'
+      },
+      {
+        userId: adminUser.id,
+        groupId: viagemGroup!.id,
+        role: 'OWNER'
+      },
+      {
+        userId: clientUser.id,
+        groupId: viagemGroup!.id,
         role: 'MEMBER'
       }
     ]
   })
 
-  console.log('✅ Membros adicionados ao grupo')
+  console.log('✅ Membros adicionados aos grupos')
 
-  // Criar categorias
+  // Criar categorias para o grupo de viagem
   const categories = await prisma.category.createMany({
     data: [
-      { name: 'Alimentação', color: '#FF6B6B', icon: '🍽️', tenantId: tenant.id, groupId: group.id },
-      { name: 'Transporte', color: '#4ECDC4', icon: '🚗', tenantId: tenant.id, groupId: group.id },
-      { name: 'Hospedagem', color: '#45B7D1', icon: '🏨', tenantId: tenant.id, groupId: group.id },
-      { name: 'Entretenimento', color: '#96CEB4', icon: '🎮', tenantId: tenant.id, groupId: group.id },
-      { name: 'Outros', color: '#FFEAA7', icon: '📦', tenantId: tenant.id, groupId: group.id }
+      { name: 'Alimentação', color: '#FF6B6B', icon: '🍽️', tenantId: tenant.id, groupId: viagemGroup!.id },
+      { name: 'Transporte', color: '#4ECDC4', icon: '🚗', tenantId: tenant.id, groupId: viagemGroup!.id },
+      { name: 'Hospedagem', color: '#45B7D1', icon: '🏨', tenantId: tenant.id, groupId: viagemGroup!.id },
+      { name: 'Entretenimento', color: '#96CEB4', icon: '🎮', tenantId: tenant.id, groupId: viagemGroup!.id },
+      { name: 'Outros', color: '#FFEAA7', icon: '📦', tenantId: tenant.id, groupId: viagemGroup!.id }
     ]
   })
 
@@ -106,7 +173,7 @@ async function main() {
         date: new Date('2024-01-15'),
         status: 'CONFIRMED',
         paidById: adminUser.id,
-        groupId: group.id,
+        groupId: viagemGroup!.id,
         categoryId: (await prisma.category.findFirst({ where: { name: 'Alimentação' } }))?.id
       },
       {
@@ -115,7 +182,7 @@ async function main() {
         date: new Date('2024-01-15'),
         status: 'CONFIRMED',
         paidById: clientUser.id,
-        groupId: group.id,
+        groupId: viagemGroup!.id,
         categoryId: (await prisma.category.findFirst({ where: { name: 'Transporte' } }))?.id
       },
       {
@@ -124,7 +191,7 @@ async function main() {
         date: new Date('2024-01-15'),
         status: 'CONFIRMED',
         paidById: adminUser.id,
-        groupId: group.id,
+        groupId: viagemGroup!.id,
         categoryId: (await prisma.category.findFirst({ where: { name: 'Hospedagem' } }))?.id
       }
     ]

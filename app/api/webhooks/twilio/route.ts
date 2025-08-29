@@ -246,30 +246,44 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
       `📅 Data: ${extractionResult.data.datas?.emissao || extractionResult.data.date || 'Não identificada'}\n` +
       `📄 Tipo: ${extractionResult.data.documento?.tipo || extractionResult.data.tipo_transacao || 'Recibo'}\n\n`
 
+    // Sempre mostrar grupos pré-definidos + opção de criar novo
+    message += `📋 Selecione o grupo de despesas:\n`
+    message += `1. Alimentação 🍽️\n`
+    message += `2. Transporte 🚗\n`
+    message += `3. Lazer 🎮\n`
+    message += `4. Moradia 🏠\n`
+    
     if (userGroups.length > 0) {
-      message += `📋 Selecione o grupo:\n`
+      message += `5. Meus grupos:\n`
       userGroups.forEach((group, index) => {
-        message += `${index + 1}. ${group.name}\n`
+        message += `   ${index + 6}. ${group.name}\n`
       })
-      message += `0. Criar novo grupo\n\n`
-      message += `Responda com o número do grupo ou "0" para novo grupo.`
-      
-      // Definir estado do usuário para aguardar seleção de grupo
-      await setUserState(user.id, { 
-        action: 'SELECTING_GROUP', 
-        groups: userGroups,
-        pendingExpenseData: {
-          description: extractionResult.data.recebedor?.nome || extractionResult.data.estabelecimento?.nome,
-          amount: extractionResult.data.totais?.total_final || extractionResult.data.amount,
-          date: extractionResult.data.datas?.emissao ? new Date(extractionResult.data.datas.emissao) : new Date(),
-          receiptData: extractionResult.data,
-          mediaUrl: mediaUrl
-        }
-      })
-    } else {
-      message += `📋 Grupo: Despesas Gerais (padrão)\n\n` +
-        `Responda "sim" para confirmar ou "não" para rejeitar.`
     }
+    
+    message += `0. Criar novo grupo\n\n`
+    message += `Responda com o número do grupo ou "0" para novo grupo.`
+    
+    // Definir estado do usuário para aguardar seleção de grupo
+    const predefinedGroups = [
+      { id: 'alimentacao', name: 'Alimentação', description: 'Despesas com comida, restaurantes, mercado' },
+      { id: 'transporte', name: 'Transporte', description: 'Uber, táxi, combustível, passagens' },
+      { id: 'lazer', name: 'Lazer', description: 'Entretenimento, cinema, shows, viagens' },
+      { id: 'moradia', name: 'Moradia', description: 'Aluguel, contas, manutenção' }
+    ]
+    
+    await setUserState(user.id, { 
+      action: 'SELECTING_GROUP', 
+      groups: [...predefinedGroups, ...userGroups],
+      predefinedGroups: predefinedGroups,
+      userGroups: userGroups,
+      pendingExpenseData: {
+        description: extractionResult.data.recebedor?.nome || extractionResult.data.estabelecimento?.nome,
+        amount: extractionResult.data.totais?.total_final || extractionResult.data.amount,
+        date: extractionResult.data.datas?.emissao ? new Date(extractionResult.data.datas.emissao) : new Date(),
+        receiptData: extractionResult.data,
+        mediaUrl: mediaUrl
+      }
+    })
 
     await sendWhatsAppMessage(from, message)
 
@@ -676,17 +690,49 @@ async function handleGroupSelection(from: string, text: string, user: any, userS
       await setUserState(user.id, { action: 'WAITING_CONFIRMATION', groupId: newGroup.id })
       
     } else if (selection > 0 && selection <= userState.groups.length) {
-      // Selecionar grupo existente
+      // Selecionar grupo (pré-definido ou personalizado)
       const selectedGroup = userState.groups[selection - 1]
       
       console.log('🎯 Grupo selecionado:', selectedGroup.name, 'ID:', selectedGroup.id)
+      
+      // Se for grupo pré-definido, criar ou encontrar o grupo real
+      let actualGroupId = selectedGroup.id
+      
+      if (selection <= 4) {
+        // Grupo pré-definido - criar se não existir
+        let actualGroup = await prisma.group.findFirst({
+          where: {
+            name: selectedGroup.name,
+            tenantId: user.tenantId
+          }
+        })
+        
+        if (!actualGroup) {
+          actualGroup = await prisma.group.create({
+            data: {
+              name: selectedGroup.name,
+              description: selectedGroup.description,
+              tenantId: user.tenantId,
+              members: {
+                create: {
+                  userId: user.id,
+                  role: 'ADMIN'
+                }
+              }
+            }
+          })
+          console.log('✅ Grupo pré-definido criado:', actualGroup.name)
+        }
+        
+        actualGroupId = actualGroup.id
+      }
       
       await sendWhatsAppMessage(from, `✅ Grupo selecionado: "${selectedGroup.name}"\n\nAgora responda "sim" para confirmar a despesa neste grupo.`)
       
       // Atualizar estado do usuário para aguardar confirmação
       const newState = { 
         action: 'WAITING_CONFIRMATION', 
-        groupId: selectedGroup.id,
+        groupId: actualGroupId,
         pendingExpenseData: userState.pendingExpenseData // Manter dados da despesa
       }
       

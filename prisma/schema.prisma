@@ -138,6 +138,10 @@ model Expense {
   aiExtracted Boolean @default(false)
   aiConfidence Decimal? @db.Decimal(3, 2)
   
+  // Tipo de documento
+  documentType String? // recibo, nota_fiscal, pix, ted, doc, transferencia, etc.
+  mediaType    String? // image, pdf, document
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
