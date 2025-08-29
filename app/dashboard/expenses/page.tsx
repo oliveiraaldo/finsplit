@@ -31,6 +31,8 @@ interface Expense {
   paidBy: string
   groupName: string
   category?: string
+  receiptUrl?: string
+  mediaType?: string
 }
 
 export default function ExpensesPage() {
@@ -322,6 +324,12 @@ export default function ExpensesPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="font-semibold text-gray-900">{expense.description}</h3>
+                        {expense.receiptUrl && (
+                          <div className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                            <Receipt className="h-3 w-3" />
+                            Recibo
+                          </div>
+                        )}
                         {getStatusBadge(expense.status)}
                       </div>
                       

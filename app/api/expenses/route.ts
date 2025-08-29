@@ -121,6 +121,8 @@ export async function POST(request: NextRequest) {
         status: 'CONFIRMED',
         aiExtracted: false,
         aiConfidence: 0,
+        receiptUrl: body.receiptUrl || null,
+        mediaType: body.mediaType || null,
         paidBy: {
           connect: { id: user.id }
         },

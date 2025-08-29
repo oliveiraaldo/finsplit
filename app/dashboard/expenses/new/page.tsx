@@ -14,7 +14,11 @@ import {
   DollarSign,
   Calendar,
   Users,
-  Tag
+  Tag,
+  Upload,
+  X,
+  Eye,
+  FileText
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -35,12 +39,20 @@ export default function NewExpensePage() {
   const [isLoading, setIsLoading] = useState(false)
   const [groups, setGroups] = useState<Group[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadedReceipt, setUploadedReceipt] = useState<{
+    url: string
+    originalName: string
+    size: number
+    type: string
+  } | null>(null)
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
     date: new Date().toISOString().split('T')[0], // Data de hoje por padrão
     groupId: '',
-    categoryId: ''
+    categoryId: '',
+    receiptUrl: ''
   })
 
   // Buscar grupos e categorias ao carregar
@@ -73,6 +85,52 @@ export default function NewExpensePage() {
     fetchData()
   }, [])
 
+  // Atualizar receiptUrl quando um arquivo for enviado
+  useEffect(() => {
+    if (uploadedReceipt) {
+      setFormData(prev => ({ ...prev, receiptUrl: uploadedReceipt.url }))
+    }
+  }, [uploadedReceipt])
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setUploadedReceipt(result)
+        toast.success('Recibo enviado com sucesso!')
+      } else {
+        const errorData = await response.text()
+        console.error('Erro no upload:', errorData)
+        toast.error('Erro ao enviar recibo')
+      }
+    } catch (error) {
+      console.error('Erro:', error)
+      toast.error('Erro ao enviar recibo')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const removeReceipt = () => {
+    setUploadedReceipt(null)
+    setFormData(prev => ({ ...prev, receiptUrl: '' }))
+    // Limpar o input de arquivo
+    const fileInput = document.getElementById('receipt') as HTMLInputElement
+    if (fileInput) fileInput.value = ''
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -104,7 +162,9 @@ export default function NewExpensePage() {
         amount: parseFloat(formData.amount),
         date: formData.date,
         groupId: formData.groupId,
-        categoryId: formData.categoryId || null
+        categoryId: formData.categoryId || null,
+        receiptUrl: formData.receiptUrl || null,
+        mediaType: uploadedReceipt?.type || null
       }
 
       console.log('💰 Criando despesa:', dataToSend)
@@ -257,6 +317,89 @@ export default function NewExpensePage() {
                     </option>
                   ))}
                 </Select>
+              </div>
+
+              {/* Upload de Recibo */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Receipt className="h-4 w-4" />
+                  Recibo/Comprovante (opcional)
+                </Label>
+                
+                {!uploadedReceipt ? (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600">
+                        Clique para enviar uma imagem ou PDF do recibo
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        JPG, PNG, WEBP ou PDF - Máximo 10MB
+                      </p>
+                      <Input
+                        id="receipt"
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={handleFileUpload}
+                        disabled={isLoading || isUploading}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => document.getElementById('receipt')?.click()}
+                        disabled={isLoading || isUploading}
+                      >
+                        {isUploading ? 'Enviando...' : 'Escolher Arquivo'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border rounded-lg p-4 bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {uploadedReceipt.type.startsWith('image/') ? (
+                          <img
+                            src={uploadedReceipt.url}
+                            alt="Preview do recibo"
+                            className="w-16 h-16 object-cover rounded border"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-red-100 rounded border flex items-center justify-center">
+                            <FileText className="h-8 w-8 text-red-600" />
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium text-sm">{uploadedReceipt.originalName}</p>
+                          <p className="text-xs text-gray-500">
+                            {(uploadedReceipt.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(uploadedReceipt.url, '_blank')}
+                          title="Visualizar recibo"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={removeReceipt}
+                          title="Remover recibo"
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Botões */}

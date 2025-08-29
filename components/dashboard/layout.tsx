@@ -13,7 +13,8 @@ import {
   LogOut,
   Menu,
   X,
-  Bot
+  Bot,
+  Tag
 } from 'lucide-react'
 
 interface DashboardLayoutProps {
@@ -28,6 +29,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Grupos', href: '/dashboard/groups', icon: Users },
     { name: 'Despesas', href: '/dashboard/expenses', icon: Receipt },
+    { name: 'Categorias', href: '/dashboard/categories', icon: Tag },
     { name: 'Relatórios', href: '/dashboard/reports', icon: BarChart3 },
     { name: 'Testar Integrações', href: '/dashboard/test-integrations', icon: Bot },
     { name: 'Configurações', href: '/dashboard/settings', icon: Settings },
