@@ -119,15 +119,23 @@ export default function ExpensesPage() {
   }
 
   const handleUpdateExpense = (updatedExpense: any) => {
-    setExpenses(expenses.map(e => 
-      e.id === updatedExpense.id ? {
-        ...e,
-        description: updatedExpense.description,
-        amount: updatedExpense.amount,
-        date: updatedExpense.date,
-        status: updatedExpense.status
-      } : e
-    ))
+    console.log('🔄 Atualizando despesa na lista:', updatedExpense)
+    try {
+      setExpenses(expenses.map(e => 
+        e.id === updatedExpense.id ? {
+          ...e,
+          description: updatedExpense.description,
+          amount: updatedExpense.amount,
+          date: updatedExpense.date,
+          status: updatedExpense.status,
+          category: updatedExpense.category,
+          categoryId: updatedExpense.categoryId
+        } : e
+      ))
+      console.log('✅ Lista de despesas atualizada')
+    } catch (error) {
+      console.error('❌ Erro ao atualizar lista de despesas:', error)
+    }
   }
 
   const handleDeleteExpense = async (expenseId: string) => {

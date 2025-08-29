@@ -101,6 +101,29 @@ export async function PUT(
     const expenseId = params.id
     const tenantId = session.user.tenantId
     const body = await request.json()
+    console.log('📝 Dados recebidos para atualização:', body)
+
+    // Validar dados recebidos
+    if (!body.description || typeof body.description !== 'string') {
+      return NextResponse.json(
+        { message: 'Descrição é obrigatória' },
+        { status: 400 }
+      )
+    }
+
+    if (typeof body.amount !== 'number' || isNaN(body.amount)) {
+      return NextResponse.json(
+        { message: 'Valor deve ser um número válido' },
+        { status: 400 }
+      )
+    }
+
+    if (!body.date) {
+      return NextResponse.json(
+        { message: 'Data é obrigatória' },
+        { status: 400 }
+      )
+    }
 
     // Verificar se a despesa existe e pertence ao tenant
     const existingExpense = await prisma.expense.findFirst({

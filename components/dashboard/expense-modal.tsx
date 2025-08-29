@@ -92,29 +92,57 @@ export function ExpenseModal({
   const handleSave = async () => {
     if (!expense) return
 
+    // Validar dados antes de enviar
+    if (!formData.description?.trim()) {
+      toast.error('Descrição é obrigatória')
+      return
+    }
+
+    if (!formData.amount || isNaN(parseFloat(formData.amount))) {
+      toast.error('Valor deve ser um número válido')
+      return
+    }
+
+    if (!formData.date) {
+      toast.error('Data é obrigatória')
+      return
+    }
+
     setIsLoading(true)
     try {
+      const dataToSend = {
+        description: formData.description.trim(),
+        amount: parseFloat(formData.amount),
+        date: formData.date,
+        status: formData.status,
+        categoryId: formData.categoryId || null
+      }
+
+      console.log('💾 Salvando despesa:', dataToSend)
+
       const response = await fetch(`/api/expenses/${expense.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          ...formData,
-          amount: parseFloat(formData.amount)
-        })
+        body: JSON.stringify(dataToSend)
       })
+
+      console.log('📡 Response status:', response.status)
 
       if (response.ok) {
         const updatedExpense = await response.json()
+        console.log('✅ Despesa atualizada:', updatedExpense)
         onUpdate(updatedExpense)
         setIsEditing(false)
         toast.success('Despesa atualizada com sucesso!')
       } else {
+        const errorData = await response.text()
+        console.error('❌ Erro na resposta:', errorData)
         toast.error('Erro ao atualizar despesa')
       }
     } catch (error) {
-      console.error('Erro ao salvar:', error)
+      console.error('❌ Erro ao salvar:', error)
       toast.error('Erro ao salvar alterações')
     } finally {
       setIsLoading(false)
