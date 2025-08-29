@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { openai } from '@/lib/openai'
-import { twilio } from '@/lib/twilio'
+import { twilioClient } from '@/lib/twilio'
 
 export async function POST(request: NextRequest) {
   try {
@@ -400,7 +400,7 @@ async function sendWhatsAppMessage(to: string, body: string) {
     console.log('  To:', formattedTo)
     console.log('  Body:', body)
     
-    await twilio.messages.create({
+    await twilioClient.messages.create({
       body,
       from: formattedFrom,
       to: formattedTo
