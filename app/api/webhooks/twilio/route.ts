@@ -139,7 +139,7 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
     if (!validation.isValid) {
       const missingFields = validation.missing.map(field => {
         const fieldNames = {
-          local: 'Local/Estabelecimento',
+          recebedor: 'Recebedor/Estabelecimento',
           data: 'Data',
           valor: 'Valor',
           categoria: 'Categoria'
@@ -150,7 +150,7 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
       const message = `❌ Dados obrigatórios não identificados:\n\n` +
         `Campos faltando: ${missingFields}\n\n` +
         `Por favor, envie uma imagem mais clara ou informe os dados manualmente:\n` +
-        `"local: [nome do estabelecimento]"\n` +
+        `"recebedor: [nome do recebedor/estabelecimento]"\n` +
         `"data: [data no formato DD/MM/AAAA]"\n` +
         `"valor: [valor total]"\n` +
         `"categoria: [categoria da despesa]"`
@@ -176,7 +176,7 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
       // Salvar despesa como pendente para confirmação
       const expense = await prisma.expense.create({
         data: {
-          description: extractionResult.data.estabelecimento?.nome || extractionResult.data.merchant,
+          description: extractionResult.data.recebedor?.nome || extractionResult.data.estabelecimento?.nome || extractionResult.data.merchant,
           amount: extractionResult.data.totais?.total_final || extractionResult.data.amount,
           date: extractionResult.data.datas?.emissao ? new Date(extractionResult.data.datas.emissao) : new Date(extractionResult.data.date),
           status: 'PENDING',
@@ -200,7 +200,7 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
     // Criar despesa pendente
     const expense = await prisma.expense.create({
       data: {
-        description: extractionResult.data.estabelecimento?.nome || extractionResult.data.description || 'Recibo enviado via WhatsApp',
+        description: extractionResult.data.recebedor?.nome || extractionResult.data.estabelecimento?.nome || extractionResult.data.description || 'Recibo enviado via WhatsApp',
         amount: extractionResult.data.totais?.total_final || extractionResult.data.amount || 0,
         date: extractionResult.data.datas?.emissao ? new Date(extractionResult.data.datas.emissao) : new Date(),
         status: 'PENDING',
@@ -241,10 +241,10 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
     
     // Enviar confirmação com seleção de grupo
     let message = `✅ Recibo recebido!\n\n` +
-      `🏪 Estabelecimento: ${extractionResult.data.estabelecimento?.nome || 'Não identificado'}\n` +
+      `👤 Recebedor: ${extractionResult.data.recebedor?.nome || extractionResult.data.estabelecimento?.nome || 'Não identificado'}\n` +
       `💰 Valor: R$ ${extractionResult.data.totais?.total_final || extractionResult.data.amount || 0}\n` +
       `📅 Data: ${extractionResult.data.datas?.emissao || extractionResult.data.date || 'Não identificada'}\n` +
-      `📄 Recibo: ${extractionResult.data.documento?.numero_recibo || 'Não identificado'}\n\n`
+      `📄 Tipo: ${extractionResult.data.documento?.tipo || extractionResult.data.tipo_transacao || 'Recibo'}\n\n`
 
     if (userGroups.length > 0) {
       message += `📋 Selecione o grupo:\n`
@@ -352,50 +352,59 @@ async function extractReceiptData(base64Image: string) {
   try {
     console.log('🤖 Tentando extração com OpenAI...')
     
-    const prompt = `
-      Você é um motor de extração estruturada de dados de recibos e comprovantes brasileiros.
-      Receberá uma imagem de recibo e deve retornar apenas JSON, seguindo o esquema abaixo.
-      Se um campo não existir, use null. Não invente valores.
+          const prompt = `
+        Você é um motor de extração estruturada de dados de recibos, comprovantes bancários, notas fiscais e transferências brasileiras.
+        Receberá uma imagem e deve retornar apenas JSON, seguindo o esquema abaixo.
+        Se um campo não existir, use null. Não invente valores.
 
-      Esquema JSON esperado:
-      {
-        "estabelecimento": {
-          "nome": "Nome do estabelecimento",
-          "tipo": "tipo do estabelecimento",
-          "cnpj": "CNPJ apenas dígitos",
-          "endereco": "endereço completo",
-          "cidade": "cidade",
-          "uf": "UF",
-          "telefone": "telefone apenas dígitos"
-        },
-        "documento": {
-          "numero_recibo": "número do recibo",
-          "protocolo": "protocolo se houver"
-        },
-        "datas": {
-          "emissao": "data de emissão YYYY-MM-DD",
-          "previsao_entrega": "data de previsão se houver"
-        },
-        "itens": [
-          {
-            "descricao": "descrição do item",
-            "quantidade": 1,
-            "valor_total": valor_total_numerico
-          }
-        ],
-        "totais": {
-          "total_final": valor_total_final_numerico,
-          "moeda": "BRL",
-          "pago": true/false
-        },
-        "pessoa_referida": {
-          "nome": "nome da pessoa",
-          "cpf": "CPF apenas dígitos"
+        IMPORTANTE: Para comprovantes bancários (PIX, TED, DOC), o "recebedor" é quem RECEBEU o dinheiro.
+        Para recibos de compra, o "estabelecimento" é onde foi feita a compra.
+
+        Esquema JSON esperado:
+        {
+          "recebedor": {
+            "nome": "Nome do recebedor (pessoa ou empresa)",
+            "tipo": "pessoa, empresa, estabelecimento",
+            "documento": "CPF ou CNPJ apenas dígitos",
+            "banco": "nome do banco se aplicável",
+            "conta": "número da conta se aplicável"
+          },
+          "estabelecimento": {
+            "nome": "Nome do estabelecimento (para compras)",
+            "tipo": "tipo do estabelecimento",
+            "cnpj": "CNPJ apenas dígitos",
+            "endereco": "endereço completo",
+            "cidade": "cidade",
+            "uf": "UF",
+            "telefone": "telefone apenas dígitos"
+          },
+          "documento": {
+            "numero_recibo": "número do recibo",
+            "protocolo": "protocolo se houver",
+            "tipo": "recibo, nota fiscal, comprovante bancário, transferência"
+          },
+          "datas": {
+            "emissao": "data de emissão YYYY-MM-DD",
+            "previsao_entrega": "data de previsão se houver"
+          },
+          "itens": [
+            {
+              "descricao": "descrição do item",
+              "quantidade": 1,
+              "valor_total": valor_total_numerico
+            }
+          ],
+          "totais": {
+            "total_final": valor_total_final_numerico,
+            "moeda": "BRL",
+            "pago": true/false
+          },
+          "tipo_transacao": "transferência, pagamento, compra, saque, depósito",
+          "metodo_pagamento": "PIX, TED, DOC, dinheiro, cartão, boleto"
         }
-      }
-      
-      Responda APENAS com o JSON válido, sem texto adicional.
-    `
+        
+        Responda APENAS com o JSON válido, sem texto adicional.
+      `
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -499,7 +508,7 @@ async function checkDuplicateExpense(userId: string, data: any) {
       where: {
         paidById: userId,
         amount: data.totais?.total_final || data.amount,
-        description: data.estabelecimento?.nome || data.merchant,
+        description: data.recebedor?.nome || data.estabelecimento?.nome || data.merchant,
         date: data.datas?.emissao ? new Date(data.datas.emissao) : new Date(data.date),
         status: { in: ['CONFIRMED', 'PENDING'] }
       }
@@ -507,7 +516,7 @@ async function checkDuplicateExpense(userId: string, data: any) {
 
     return duplicate
   } catch (error) {
-    console.error('❌ Erro ao verificar duplicata:', error)
+    console.error('❌ Erro ao verificar duplicatas:', error)
     return null
   }
 }
@@ -515,11 +524,11 @@ async function checkDuplicateExpense(userId: string, data: any) {
 // Função para validar campos obrigatórios
 function validateRequiredFields(data: any) {
   const required = {
-    local: data.estabelecimento?.nome || data.merchant,
+    recebedor: data.recebedor?.nome || data.estabelecimento?.nome || data.merchant,
     data: data.datas?.emissao || data.date,
     valor: data.totais?.total_final || data.amount,
     pagador: true, // Sempre disponível (usuário atual)
-    categoria: data.category
+    categoria: data.category || data.tipo_transacao
   }
 
   const missing = Object.entries(required)

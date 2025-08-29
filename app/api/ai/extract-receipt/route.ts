@@ -115,14 +115,24 @@ async function extractReceiptData(imageBase64: string, description?: string) {
     console.log('🤖 Tentando extração com OpenAI...')
     
     const prompt = `
-      Você é um motor de extração estruturada de dados de recibos e comprovantes brasileiros.
-      Receberá uma imagem de recibo e deve retornar apenas JSON, seguindo o esquema abaixo.
+      Você é um motor de extração estruturada de dados de recibos, comprovantes bancários, notas fiscais e transferências brasileiras.
+      Receberá uma imagem e deve retornar apenas JSON, seguindo o esquema abaixo.
       Se um campo não existir, use null. Não invente valores.
+
+      IMPORTANTE: Para comprovantes bancários (PIX, TED, DOC), o "recebedor" é quem RECEBEU o dinheiro.
+      Para recibos de compra, o "estabelecimento" é onde foi feita a compra.
 
       Esquema JSON esperado:
       {
+        "recebedor": {
+          "nome": "Nome do recebedor (pessoa ou empresa)",
+          "tipo": "pessoa, empresa, estabelecimento",
+          "documento": "CPF ou CNPJ apenas dígitos",
+          "banco": "nome do banco se aplicável",
+          "conta": "número da conta se aplicável"
+        },
         "estabelecimento": {
-          "nome": "Nome do estabelecimento",
+          "nome": "Nome do estabelecimento (para compras)",
           "tipo": "tipo do estabelecimento",
           "cnpj": "CNPJ apenas dígitos",
           "endereco": "endereço completo",
@@ -132,7 +142,8 @@ async function extractReceiptData(imageBase64: string, description?: string) {
         },
         "documento": {
           "numero_recibo": "número do recibo",
-          "protocolo": "protocolo se houver"
+          "protocolo": "protocolo se houver",
+          "tipo": "recibo, nota fiscal, comprovante bancário, transferência"
         },
         "datas": {
           "emissao": "data de emissão YYYY-MM-DD",
@@ -150,10 +161,8 @@ async function extractReceiptData(imageBase64: string, description?: string) {
           "moeda": "BRL",
           "pago": true/false
         },
-        "pessoa_referida": {
-          "nome": "nome da pessoa",
-          "cpf": "CPF apenas dígitos"
-        }
+        "tipo_transacao": "transferência, pagamento, compra, saque, depósito",
+        "metodo_pagamento": "PIX, TED, DOC, dinheiro, cartão, boleto"
       }
 
       ${description ? `Descrição adicional: ${description}` : ''}
@@ -202,7 +211,7 @@ async function extractReceiptData(imageBase64: string, description?: string) {
     console.log('✅ JSON extraído com sucesso:', Object.keys(extractedData))
     
     // Validar dados obrigatórios
-    if (!extractedData.totais?.total_final && !extractedData.estabelecimento?.nome) {
+    if (!extractedData.totais?.total_final && !extractedData.recebedor?.nome && !extractedData.estabelecimento?.nome) {
       console.log('❌ Dados obrigatórios não encontrados')
       return { success: false, error: 'Dados obrigatórios não encontrados' }
     }
