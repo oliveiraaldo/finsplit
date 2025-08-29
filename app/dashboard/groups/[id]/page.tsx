@@ -12,11 +12,13 @@ import {
   ArrowLeft,
   UserPlus,
   Settings,
-  Download
+  Download,
+  Trash2
 } from 'lucide-react'
 import Link from 'next/link'
 import { AddMemberModal } from '@/components/dashboard/add-member-modal'
 import { EditMemberModal } from '@/components/dashboard/edit-member-modal'
+import { toast } from 'sonner'
 
 interface GroupMember {
   id: string
@@ -118,6 +120,36 @@ export default function GroupDetailsPage() {
   const handleEditMember = (member: any) => {
     setSelectedMember(member)
     setIsEditMemberModalOpen(true)
+  }
+
+  const handleRemoveMember = async (member: any) => {
+    if (!window.confirm(`Tem certeza que deseja remover ${member.name} do grupo?`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/groups/${groupId}/members/${member.id}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        // Remover membro da lista local
+        if (group) {
+          setGroup({
+            ...group,
+            members: group.members.filter(m => m.id !== member.id)
+          })
+        }
+        toast.success('Membro removido com sucesso!')
+      } else {
+        const errorData = await response.text()
+        console.error('❌ Erro na resposta:', errorData)
+        toast.error('Erro ao remover membro')
+      }
+    } catch (error) {
+      console.error('❌ Erro:', error)
+      toast.error('Erro ao remover membro')
+    }
   }
 
   // Verificar se o usuário atual pode adicionar membros (ADMIN ou OWNER)
@@ -423,14 +455,28 @@ export default function GroupDetailsPage() {
                       </div>
                       
                       {(canAddMembers || member.isCurrentUser) && member.role !== 'OWNER' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleEditMember(member)}
-                          title="Editar permissões"
-                        >
-                          <Settings className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleEditMember(member)}
+                            title="Editar permissões"
+                          >
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                          
+                          {canAddMembers && (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleRemoveMember(member)}
+                              title="Remover membro"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
