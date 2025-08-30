@@ -142,7 +142,7 @@ export default function ExpensesPage() {
           amount: parseFloat(updatedExpense.amount.toString()) || 0,
           date: updatedExpense.date,
           status: updatedExpense.status,
-          category: updatedExpense.category,
+          category: typeof updatedExpense.category === 'object' ? updatedExpense.category?.name : updatedExpense.category,
           categoryId: updatedExpense.categoryId
         } : e
       ))
