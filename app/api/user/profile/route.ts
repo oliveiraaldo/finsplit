@@ -84,7 +84,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const userId = session.user.id
-    const { name, email } = await request.json()
+    const { name, email, phone } = await request.json()
 
     // Validações básicas
     if (!name || !email) {
@@ -116,12 +116,41 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    // Validar formato do telefone se fornecido
+    if (phone && phone.trim()) {
+      const phoneRegex = /^\+55\s?\(?\d{2}\)?\s?\d{4,5}-?\d{4}$/
+      if (!phoneRegex.test(phone.trim())) {
+        return NextResponse.json(
+          { message: 'Formato de telefone inválido. Use: +55 (11) 99999-9999' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Verificar se o telefone já está em uso por outro usuário (se fornecido)
+    if (phone && phone.trim()) {
+      const existingUserWithPhone = await prisma.user.findFirst({
+        where: {
+          phone: phone.trim(),
+          id: { not: userId }
+        }
+      })
+
+      if (existingUserWithPhone) {
+        return NextResponse.json(
+          { message: 'Este número de telefone já está em uso' },
+          { status: 400 }
+        )
+      }
+    }
+
     // Atualizar usuário
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         name,
-        email
+        email,
+        phone: phone?.trim() || null
       }
     })
 
@@ -131,7 +160,7 @@ export async function PUT(request: NextRequest) {
         action: 'PROFILE_UPDATED',
         entity: 'USER',
         entityId: userId,
-        details: { updatedFields: ['name', 'email'] },
+        details: { updatedFields: ['name', 'email', 'phone'] },
         tenantId: session.user.tenantId,
         userId
       }
@@ -142,7 +171,8 @@ export async function PUT(request: NextRequest) {
       user: {
         id: updatedUser.id,
         name: updatedUser.name,
-        email: updatedUser.email
+        email: updatedUser.email,
+        phone: updatedUser.phone
       }
     })
 

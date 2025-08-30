@@ -15,7 +15,8 @@ import {
   CreditCard,
   Save,
   Eye,
-  EyeOff
+  EyeOff,
+  Phone
 } from 'lucide-react'
 
 interface UserProfile {
@@ -91,7 +92,8 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({
           name: formData.name,
-          email: formData.email
+          email: formData.email,
+          phone: formData.phone
         })
       })
 
@@ -103,7 +105,8 @@ export default function SettingsPage() {
           setProfile({
             ...profile,
             name: formData.name,
-            email: formData.email
+            email: formData.email,
+            phone: formData.phone
           })
         }
       } else {
@@ -118,8 +121,8 @@ export default function SettingsPage() {
   const handleNotificationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, checked } = e.target
     
-    if (id === 'whatsappNotifications' && checked && !formData.phone) {
-      toast.error('Digite um número de telefone para ativar notificações WhatsApp')
+    if (id === 'whatsappNotifications' && checked && !profile?.phone) {
+      toast.error('Configure um número de telefone no seu perfil para ativar notificações WhatsApp')
       return
     }
     
@@ -140,8 +143,7 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({
           emailNotifications: profile?.emailNotifications || false,
-          whatsappNotifications: profile?.whatsappNotifications || false,
-          phone: formData.phone
+          whatsappNotifications: profile?.whatsappNotifications || false
         })
       })
 
@@ -286,6 +288,25 @@ export default function SettingsPage() {
                   disabled={!isEditing}
                   className="mt-1"
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="phone" className="flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  Telefone (WhatsApp)
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  disabled={!isEditing}
+                  placeholder="+55 (11) 99999-9999"
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Usado para receber despesas via WhatsApp. Formato: +55 (11) 99999-9999
+                </p>
               </div>
 
               <div>
@@ -502,23 +523,7 @@ export default function SettingsPage() {
                     </label>
                   </div>
                 </div>
-                
-                {/* Campo de telefone */}
-                <div>
-                  <Label htmlFor="phone">Número de Telefone (WhatsApp)</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    placeholder="+55 (11) 99999-9999"
-                    className="mt-1"
-                    disabled={!profile?.whatsappNotifications}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Formato: +55 (11) 99999-9999
-                  </p>
-                </div>
+
               </div>
 
               {/* Botão Salvar */}
