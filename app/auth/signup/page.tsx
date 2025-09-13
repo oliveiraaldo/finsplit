@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectItem } from '@/components/ui/select'
 import { toast } from 'sonner'
 
 interface Plan {
@@ -170,14 +170,10 @@ export default function SignUpPage() {
                 value={formData.tenantType} 
                 onChange={(e) => setFormData(prev => ({ ...prev, tenantType: e.target.value }))}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="BUSINESS">🏢 Empresa/Negócio</SelectItem>
-                  <SelectItem value="FAMILY">🏠 Família/Residencial</SelectItem>
-                  <SelectItem value="PERSONAL">👤 Pessoal/Individual</SelectItem>
-                </SelectContent>
+                <SelectItem value="">Selecione o tipo</SelectItem>
+                <SelectItem value="BUSINESS">🏢 Empresa/Negócio</SelectItem>
+                <SelectItem value="FAMILY">🏠 Família/Residencial</SelectItem>
+                <SelectItem value="PERSONAL">👤 Pessoal/Individual</SelectItem>
               </Select>
             </div>
 
@@ -209,29 +205,14 @@ export default function SignUpPage() {
               ) : (
                 <Select 
                   value={formData.planId} 
-                  onValueChange={(value: string) => setFormData(prev => ({ ...prev, planId: value }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, planId: e.target.value }))}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um plano" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {plans.map((plan) => (
-                      <SelectItem key={plan.id} value={plan.id}>
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex items-center space-x-2">
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              plan.price === 0 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {plan.price === 0 ? 'Grátis' : `R$ ${plan.price.toFixed(2)}/mês`}
-                            </span>
-                            <span className="font-medium">{plan.name}</span>
-                          </div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectItem value="">Selecione um plano</SelectItem>
+                  {plans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      {plan.name} - {plan.price === 0 ? 'Grátis' : `R$ ${plan.price.toFixed(2)}/mês`}
+                    </SelectItem>
+                  ))}
                 </Select>
               )}
               {formData.planId && (
