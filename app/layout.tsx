@@ -9,6 +9,18 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'FinSplit - Controle de Despesas em Grupo',
   description: 'Sistema completo para divisão e controle de despesas com integração WhatsApp e IA',
+  keywords: ['despesas', 'grupo', 'whatsapp', 'divisão', 'controle financeiro', 'IA', 'recibos'],
+  authors: [{ name: 'FinSplit Team' }],
+  creator: 'FinSplit',
+  publisher: 'FinSplit',
+  icons: {
+    icon: '/favicon.png',
+    shortcut: '/favicon.png',
+    apple: '/favicon.png',
+  },
+  manifest: '/manifest.json',
+  viewport: 'width=device-width, initial-scale=1',
+  themeColor: '#3B82F6',
 }
 
 export default function RootLayout({

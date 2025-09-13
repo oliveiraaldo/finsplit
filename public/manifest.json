@@ -1,0 +1,21 @@
+{
+  "name": "FinSplit - Controle de Despesas em Grupo",
+  "short_name": "FinSplit",
+  "description": "Sistema completo para divisão e controle de despesas com integração WhatsApp e IA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3B82F6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "productivity", "business"],
+  "lang": "pt-BR",
+  "dir": "ltr"
+}
