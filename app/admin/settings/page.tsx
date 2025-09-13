@@ -10,14 +10,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { toast } from 'sonner'
 import { 
   Settings, 
-  Save,
   RefreshCw,
-  Server,
-  Shield,
-  Bell,
-  Zap,
-  Globe,
-  Database,
   AlertTriangle,
   CheckCircle,
   Info,
@@ -130,12 +123,12 @@ export default function AdminSettings() {
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case 'general': return <Globe className="h-5 w-5" />
-      case 'integrations': return <Zap className="h-5 w-5" />
-      case 'security': return <Shield className="h-5 w-5" />
-      case 'notifications': return <Bell className="h-5 w-5" />
-      case 'limits': return <Database className="h-5 w-5" />
-      default: return <Settings className="h-5 w-5" />
+      case 'general': return '⚙️'
+      case 'integrations': return '🔌'
+      case 'security': return '🛡️'
+      case 'notifications': return '🔔'
+      case 'limits': return '📊'
+      default: return '⚙️'
     }
   }
 
@@ -232,7 +225,7 @@ export default function AdminSettings() {
               {saving === 'initializing' ? (
                 <RefreshCw className="h-4 w-4 animate-spin" />
               ) : (
-                <Plus className="h-4 w-4" />
+                '➕'
               )}
               Inicializar Padrões
             </Button>
@@ -284,7 +277,7 @@ export default function AdminSettings() {
                             : 'text-gray-700 dark:text-gray-300'
                         }`}
                       >
-                        {getCategoryIcon(category)}
+                        <span className="text-lg">{getCategoryIcon(category)}</span>
                         <span className="font-medium">{getCategoryName(category)}</span>
                         <span className="ml-auto text-sm bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">
                           {settings[category]?.length || 0}
@@ -300,10 +293,10 @@ export default function AdminSettings() {
             <div className="lg:col-span-3">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    {getCategoryIcon(activeCategory)}
-                    {getCategoryName(activeCategory)}
-                  </CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <span className="text-xl">{getCategoryIcon(activeCategory)}</span>
+                  {getCategoryName(activeCategory)}
+                </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {settings[activeCategory]?.length > 0 ? (
