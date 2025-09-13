@@ -168,7 +168,7 @@ export default function SignUpPage() {
               <Label htmlFor="tenantType">Tipo de Organização</Label>
               <Select 
                 value={formData.tenantType} 
-                onValueChange={(value: string) => setFormData(prev => ({ ...prev, tenantType: value }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, tenantType: e.target.value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o tipo" />
