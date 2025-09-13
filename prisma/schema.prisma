@@ -36,6 +36,7 @@ model User {
   // Auditoria
   auditLogs     AuditLog[]
   uploadedFiles UploadedFile[]
+  creditTransactions CreditTransaction[]
 
   @@map("users")
 }
@@ -72,6 +73,7 @@ model Tenant {
   // Auditoria
   auditLogs     AuditLog[]
   uploadedFiles UploadedFile[]
+  creditTransactions CreditTransaction[]
 
   @@map("tenants")
 }
@@ -273,6 +275,23 @@ model Plan {
   @@map("plans")
 }
 
+model CreditTransaction {
+  id        String   @id @default(cuid())
+  amount    Int      // Positivo para ADD, negativo para REMOVE/USAGE
+  type      CreditTransactionType
+  reason    String
+  createdAt DateTime @default(now())
+  
+  // Relacionamentos
+  tenantId    String
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  @@map("credit_transactions")
+}
+
 // Enums
 enum UserRole {
   CLIENT
@@ -299,6 +318,12 @@ enum TenantStatus {
   ACTIVE
   SUSPENDED
   CANCELLED
+}
+
+enum CreditTransactionType {
+  ADD
+  REMOVE
+  USAGE
 }
 
 enum ExpenseStatus {
