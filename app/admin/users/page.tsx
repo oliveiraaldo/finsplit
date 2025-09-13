@@ -333,7 +333,7 @@ export default function AdminUsers() {
 
         {/* User Modal */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl rounded-lg">
             <DialogHeader>
               <DialogTitle>
                 {editingUser ? 'Editar Usuário' : 'Novo Usuário'}
