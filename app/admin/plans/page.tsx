@@ -47,7 +47,6 @@ export default function AdminPlans() {
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null)
   const [formData, setFormData] = useState({
     name: '',
-    type: 'FREE' as 'FREE' | 'PREMIUM',
     price: 0,
     description: '',
     features: [''],
@@ -83,7 +82,6 @@ export default function AdminPlans() {
     setEditingPlan(null)
     setFormData({
       name: '',
-      type: 'FREE',
       price: 0,
       description: '',
       features: [''],
@@ -100,7 +98,6 @@ export default function AdminPlans() {
     setEditingPlan(plan)
     setFormData({
       name: plan.name,
-      type: plan.type,
       price: plan.price,
       description: plan.description,
       features: plan.features.length > 0 ? plan.features : [''],
@@ -228,15 +225,26 @@ export default function AdminPlans() {
         {/* Plans Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {plans.map((plan) => (
-            <Card key={plan.id} className={`p-6 relative ${plan.type === 'PREMIUM' ? 'border-yellow-200 bg-gradient-to-br from-yellow-50 to-white' : ''}`}>
-              {plan.type === 'PREMIUM' && (
-                <div className="absolute -top-2 -right-2">
-                  <div className="bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center">
-                    <Crown className="h-3 w-3 mr-1" />
-                    Premium
-                  </div>
+            <Card key={plan.id} className={`p-6 relative ${plan.price > 0 ? 'border-yellow-200 bg-gradient-to-br from-yellow-50 to-white' : 'border-green-200 bg-gradient-to-br from-green-50 to-white'}`}>
+              <div className="absolute -top-2 -right-2">
+                <div className={`px-2 py-1 rounded-full text-xs font-medium flex items-center ${
+                  plan.price > 0 
+                    ? 'bg-yellow-500 text-white' 
+                    : 'bg-green-500 text-white'
+                }`}>
+                  {plan.price > 0 ? (
+                    <>
+                      <Crown className="h-3 w-3 mr-1" />
+                      Pago
+                    </>
+                  ) : (
+                    <>
+                      <DollarSign className="h-3 w-3 mr-1" />
+                      Grátis
+                    </>
+                  )}
                 </div>
-              )}
+              </div>
 
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
@@ -357,29 +365,17 @@ export default function AdminPlans() {
             </DialogHeader>
             
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="name">Nome do Plano</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Nome do plano"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="type">Tipo</Label>
-                  <select
-                    id="type"
-                    value={formData.type}
-                    onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as 'FREE' | 'PREMIUM' }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="FREE">Gratuito</option>
-                    <option value="PREMIUM">Premium</option>
-                  </select>
-                </div>
+              <div>
+                <Label htmlFor="name">Nome do Plano</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Ex: Básico, Profissional, Empresarial..."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Dê um nome descritivo para o plano
+                </p>
               </div>
               
               <div>
@@ -394,15 +390,19 @@ export default function AdminPlans() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="price">Preço (R$)</Label>
+                  <Label htmlFor="price">Preço Mensal (R$)</Label>
                   <Input
                     id="price"
                     type="number"
                     step="0.01"
+                    min="0"
                     value={formData.price}
                     onChange={(e) => setFormData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
                     placeholder="0.00"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formData.price === 0 ? '✅ Plano Gratuito' : `💰 Plano Pago - R$ ${formData.price.toFixed(2)}/mês`}
+                  </p>
                 </div>
                 
                 <div>
@@ -410,10 +410,14 @@ export default function AdminPlans() {
                   <Input
                     id="creditsIncluded"
                     type="number"
+                    min="0"
                     value={formData.creditsIncluded}
                     onChange={(e) => setFormData(prev => ({ ...prev, creditsIncluded: parseInt(e.target.value) || 0 }))}
                     placeholder="0"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Créditos para WhatsApp e IA
+                  </p>
                 </div>
               </div>
               

@@ -61,6 +61,10 @@ model Tenant {
   // Relacionamentos
   users         User[]
   groups        Group[]
+  
+  // Plano personalizado (opcional)
+  planId        String?
+  customPlan    Plan?   @relation(fields: [planId], references: [id])
   ownedGroups   Group[] @relation("GroupOwner")
   categories    Category[]
   subscriptions Subscription[]
@@ -247,6 +251,26 @@ model UploadedFile {
   uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
 
   @@map("uploaded_files")
+}
+
+model Plan {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  description      String?
+  price            Float    @default(0)
+  features         Json     @default("[]")
+  maxGroups        Int      @default(5)
+  maxMembers       Int      @default(10)
+  hasWhatsApp      Boolean  @default(false)
+  creditsIncluded  Int      @default(0)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relacionamentos
+  tenants Tenant[]
+
+  @@map("plans")
 }
 
 // Enums
