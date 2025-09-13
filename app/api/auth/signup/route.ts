@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, email, password, phone, tenantName, plan } = body
+    const { name, email, password, phone, tenantName, tenantType, planId } = body
 
     // Validações básicas
     if (!name || !email || !password || !tenantName) {
@@ -51,15 +51,9 @@ export async function POST(request: NextRequest) {
     // Hash da senha
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Configurar limites do plano
-    const planConfig = plan === 'PREMIUM' ? {
-      maxGroups: 999999,
-      maxMembers: 999999,
-      maxExports: 999999,
-      hasWhatsApp: true,
-      hasAI: true,
-      credits: 100
-    } : {
+    // Buscar configurações do plano selecionado
+    let selectedPlan = null
+    let planConfig = {
       maxGroups: 1,
       maxMembers: 5,
       maxExports: 10,
@@ -68,13 +62,32 @@ export async function POST(request: NextRequest) {
       credits: 0
     }
 
+    if (planId) {
+      selectedPlan = await prisma.plan.findUnique({
+        where: { id: planId, isActive: true }
+      })
+
+      if (selectedPlan) {
+        planConfig = {
+          maxGroups: selectedPlan.maxGroups,
+          maxMembers: selectedPlan.maxMembers,
+          maxExports: 10, // Valor padrão, pode ser adicionado ao modelo Plan depois
+          hasWhatsApp: selectedPlan.hasWhatsApp,
+          hasAI: selectedPlan.hasWhatsApp, // Assumindo que IA vem junto com WhatsApp
+          credits: selectedPlan.creditsIncluded
+        }
+      }
+    }
+
     // Criar tenant e usuário em uma transação
     const result = await prisma.$transaction(async (tx) => {
       // Criar tenant
       const tenant = await tx.tenant.create({
         data: {
           name: tenantName,
-          plan: plan || 'FREE',
+          type: tenantType || 'BUSINESS',
+          plan: selectedPlan?.price === 0 ? 'FREE' : 'PREMIUM',
+          planId: selectedPlan?.id,
           ...planConfig
         }
       })
@@ -109,14 +122,46 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // Criar categorias padrão
-      const defaultCategories = [
-        { name: 'Alimentação', color: '#FF6B6B', icon: '🍽️' },
-        { name: 'Transporte', color: '#4ECDC4', icon: '🚗' },
-        { name: 'Hospedagem', color: '#45B7D1', icon: '🏨' },
-        { name: 'Entretenimento', color: '#96CEB4', icon: '🎮' },
-        { name: 'Outros', color: '#FFEAA7', icon: '📦' }
-      ]
+      // Criar categorias padrão baseadas no tipo de tenant
+      const getDefaultCategories = (type: string) => {
+        switch (type) {
+          case 'BUSINESS':
+            return [
+              { name: 'Escritório', color: '#FF6B6B', icon: '🏢' },
+              { name: 'Transporte', color: '#4ECDC4', icon: '🚗' },
+              { name: 'Alimentação', color: '#45B7D1', icon: '🍽️' },
+              { name: 'Material', color: '#96CEB4', icon: '📦' },
+              { name: 'Serviços', color: '#FFEAA7', icon: '🔧' },
+              { name: 'Marketing', color: '#DDA0DD', icon: '📢' }
+            ]
+          case 'FAMILY':
+            return [
+              { name: 'Supermercado', color: '#FF6B6B', icon: '🛒' },
+              { name: 'Contas da Casa', color: '#4ECDC4', icon: '🏠' },
+              { name: 'Transporte', color: '#45B7D1', icon: '🚗' },
+              { name: 'Saúde', color: '#96CEB4', icon: '🏥' },
+              { name: 'Educação', color: '#FFEAA7', icon: '📚' },
+              { name: 'Lazer', color: '#DDA0DD', icon: '🎮' }
+            ]
+          case 'PERSONAL':
+            return [
+              { name: 'Alimentação', color: '#FF6B6B', icon: '🍽️' },
+              { name: 'Transporte', color: '#4ECDC4', icon: '🚗' },
+              { name: 'Compras', color: '#45B7D1', icon: '🛍️' },
+              { name: 'Entretenimento', color: '#96CEB4', icon: '🎮' },
+              { name: 'Saúde', color: '#FFEAA7', icon: '💊' },
+              { name: 'Outros', color: '#DDA0DD', icon: '📦' }
+            ]
+          default:
+            return [
+              { name: 'Alimentação', color: '#FF6B6B', icon: '🍽️' },
+              { name: 'Transporte', color: '#4ECDC4', icon: '🚗' },
+              { name: 'Outros', color: '#FFEAA7', icon: '📦' }
+            ]
+        }
+      }
+
+      const defaultCategories = getDefaultCategories(tenantType || 'BUSINESS')
 
       for (const category of defaultCategories) {
         await tx.category.create({
@@ -137,7 +182,7 @@ export async function POST(request: NextRequest) {
         action: 'USER_SIGNUP',
         entity: 'USER',
         entityId: result.user.id,
-        details: { plan, tenantName },
+        details: { planId, planName: selectedPlan?.name, tenantName, tenantType },
         tenantId: result.tenant.id,
         userId: result.user.id
       }

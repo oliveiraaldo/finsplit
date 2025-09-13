@@ -34,6 +34,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { name: 'Dashboard', href: '/admin', icon: BarChart3 },
     { name: 'Usuários', href: '/admin/users', icon: Users },
     { name: 'Tenants', href: '/admin/tenants', icon: Building2 },
+    { name: 'Grupos', href: '/admin/groups', icon: Users },
     { name: 'Planos', href: '/admin/plans', icon: CreditCard },
     { name: 'Créditos', href: '/admin/credits', icon: Zap },
     { name: 'Logs de Auditoria', href: '/admin/audit-logs', icon: FileText },

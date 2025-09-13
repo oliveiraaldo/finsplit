@@ -15,7 +15,14 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         name: true,
+        type: true,
         plan: true,
+        customPlan: {
+          select: {
+            name: true,
+            price: true
+          }
+        },
         status: true,
         hasWhatsApp: true,
         credits: true,

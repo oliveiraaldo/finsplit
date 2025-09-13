@@ -26,7 +26,12 @@ import {
 interface Tenant {
   id: string
   name: string
+  type: 'BUSINESS' | 'FAMILY' | 'PERSONAL'
   plan: 'FREE' | 'PREMIUM'
+  customPlan?: {
+    name: string
+    price: number
+  }
   status: 'ACTIVE' | 'SUSPENDED' | 'CANCELLED'
   hasWhatsApp: boolean
   credits: number
