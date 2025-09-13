@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/useAuth'
+import { ProtectedRoute } from '@/components/auth/protected-route'
 import { 
   Home, 
   Users, 
@@ -22,7 +23,7 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { data: session } = useSession()
+  const { session, isAuthenticated, handleSignOut } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const navigation = [
@@ -35,12 +36,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Configurações', href: '/dashboard/settings', icon: Settings },
   ]
 
-  const handleSignOut = () => {
-    signOut({ callbackUrl: '/' })
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
@@ -143,5 +141,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </main>
       </div>
     </div>
+    </ProtectedRoute>
   )
 } 
