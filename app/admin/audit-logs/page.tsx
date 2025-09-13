@@ -88,7 +88,7 @@ export default function AdminAuditLogs() {
 
   useEffect(() => {
     fetchLogs()
-  }, [filters, pagination.page])
+  }, [filters, pagination.page]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchLogs = async () => {
     try {

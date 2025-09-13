@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
           }
         })
         results.push(setting)
-      } catch (e) {
+      } catch (e: any) {
         if (e.code === 'P2002') {
           console.log(`⚠️  Configuração ${settingData.key} já existe`)
         } else {
