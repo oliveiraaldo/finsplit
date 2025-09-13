@@ -14,7 +14,7 @@ export async function PUT(
       return NextResponse.json({ message: 'Acesso negado' }, { status: 403 })
     }
 
-    const { name, plan, status, hasWhatsApp, credits, maxGroups, maxMembers } = await request.json()
+    const { name, planId, status, hasWhatsApp, credits, maxGroups, maxMembers } = await request.json()
     const tenantId = params.id
 
     // Verificar se tenant existe
@@ -33,6 +33,25 @@ export async function PUT(
     if (!name) {
       return NextResponse.json(
         { message: 'Nome da empresa é obrigatório' },
+        { status: 400 }
+      )
+    }
+
+    if (!planId) {
+      return NextResponse.json(
+        { message: 'Plano é obrigatório' },
+        { status: 400 }
+      )
+    }
+
+    // Buscar detalhes do plano
+    const selectedPlan = await prisma.plan.findUnique({
+      where: { id: planId, isActive: true }
+    })
+
+    if (!selectedPlan) {
+      return NextResponse.json(
+        { message: 'Plano não encontrado ou inativo' },
         { status: 400 }
       )
     }
@@ -59,12 +78,13 @@ export async function PUT(
       where: { id: tenantId },
       data: {
         name,
-        plan: plan || existingTenant.plan,
+        plan: selectedPlan.price === 0 ? 'FREE' : 'PREMIUM',
+        planId: selectedPlan.id,
         status: status || existingTenant.status,
-        hasWhatsApp: hasWhatsApp !== undefined ? hasWhatsApp : existingTenant.hasWhatsApp,
-        credits: credits !== undefined ? credits : existingTenant.credits,
-        maxGroups: maxGroups !== undefined ? maxGroups : existingTenant.maxGroups,
-        maxMembers: maxMembers !== undefined ? maxMembers : existingTenant.maxMembers
+        hasWhatsApp: hasWhatsApp !== undefined ? hasWhatsApp : selectedPlan.hasWhatsApp,
+        credits: credits !== undefined ? credits : selectedPlan.creditsIncluded,
+        maxGroups: maxGroups !== undefined ? maxGroups : selectedPlan.maxGroups,
+        maxMembers: maxMembers !== undefined ? maxMembers : selectedPlan.maxMembers
       },
       select: {
         id: true,

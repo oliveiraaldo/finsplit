@@ -44,9 +44,23 @@ interface Tenant {
   }
 }
 
+interface Plan {
+  id: string
+  name: string
+  description: string | null
+  price: number
+  features: any
+  maxGroups: number
+  maxMembers: number
+  hasWhatsApp: boolean
+  creditsIncluded: number
+}
+
 export default function AdminTenants() {
   const [tenants, setTenants] = useState<Tenant[]>([])
+  const [plans, setPlans] = useState<Plan[]>([])
   const [loading, setLoading] = useState(true)
+  const [plansLoading, setPlansLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedPlan, setSelectedPlan] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
@@ -54,7 +68,7 @@ export default function AdminTenants() {
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null)
   const [formData, setFormData] = useState({
     name: '',
-    plan: 'FREE' as 'FREE' | 'PREMIUM',
+    planId: '',
     status: 'ACTIVE' as 'ACTIVE' | 'SUSPENDED' | 'CANCELLED',
     hasWhatsApp: false,
     credits: 0,
@@ -64,7 +78,26 @@ export default function AdminTenants() {
 
   useEffect(() => {
     fetchTenants()
+    fetchPlans()
   }, [])
+
+  const fetchPlans = async () => {
+    try {
+      setPlansLoading(true)
+      const response = await fetch('/api/plans/available')
+      if (response.ok) {
+        const plansData = await response.json()
+        setPlans(plansData)
+      } else {
+        toast.error('Erro ao carregar planos')
+      }
+    } catch (error) {
+      console.error('Erro ao buscar planos:', error)
+      toast.error('Erro ao carregar planos')
+    } finally {
+      setPlansLoading(false)
+    }
+  }
 
   const fetchTenants = async () => {
     try {
@@ -85,23 +118,38 @@ export default function AdminTenants() {
 
   const handleCreateTenant = () => {
     setEditingTenant(null)
+    const freePlan = plans.find(p => p.price === 0)
     setFormData({
       name: '',
-      plan: 'FREE',
+      planId: freePlan?.id || '',
       status: 'ACTIVE',
-      hasWhatsApp: false,
-      credits: 0,
-      maxGroups: 5,
-      maxMembers: 10
+      hasWhatsApp: freePlan?.hasWhatsApp || false,
+      credits: freePlan?.creditsIncluded || 0,
+      maxGroups: freePlan?.maxGroups || 5,
+      maxMembers: freePlan?.maxMembers || 10
     })
     setIsModalOpen(true)
   }
 
   const handleEditTenant = (tenant: Tenant) => {
     setEditingTenant(tenant)
+    // Se tem customPlan, buscar pelo nome do plano ou usar o primeiro
+    let planId = ''
+    if (tenant.customPlan) {
+      const foundPlan = plans.find(p => p.name === tenant.customPlan!.name)
+      planId = foundPlan?.id || ''
+    } else {
+      // Buscar plano baseado no tipo (FREE/PREMIUM)
+      const foundPlan = plans.find(p => 
+        (tenant.plan === 'FREE' && p.price === 0) || 
+        (tenant.plan === 'PREMIUM' && p.price > 0)
+      )
+      planId = foundPlan?.id || ''
+    }
+    
     setFormData({
       name: tenant.name,
-      plan: tenant.plan,
+      planId: planId,
       status: tenant.status,
       hasWhatsApp: tenant.hasWhatsApp,
       credits: tenant.credits,
@@ -112,6 +160,11 @@ export default function AdminTenants() {
   }
 
   const handleSaveTenant = async () => {
+    if (!formData.planId) {
+      toast.error('Selecione um plano')
+      return
+    }
+
     try {
       const url = editingTenant ? `/api/admin/tenants/${editingTenant.id}` : '/api/admin/tenants'
       const method = editingTenant ? 'PUT' : 'POST'
@@ -380,16 +433,34 @@ export default function AdminTenants() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="plan">Plano</Label>
-                  <select
-                    id="plan"
-                    value={formData.plan}
-                    onChange={(e) => setFormData(prev => ({ ...prev, plan: e.target.value as 'FREE' | 'PREMIUM' }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="FREE">Gratuito</option>
-                    <option value="PREMIUM">Premium</option>
-                  </select>
+                  <Label htmlFor="planId">Plano</Label>
+                  {plansLoading ? (
+                    <div className="h-10 bg-gray-100 rounded animate-pulse"></div>
+                  ) : (
+                    <select
+                      id="planId"
+                      value={formData.planId}
+                      onChange={(e) => {
+                        const selectedPlan = plans.find(p => p.id === e.target.value)
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          planId: e.target.value,
+                          hasWhatsApp: selectedPlan?.hasWhatsApp || false,
+                          credits: selectedPlan?.creditsIncluded || 0,
+                          maxGroups: selectedPlan?.maxGroups || 5,
+                          maxMembers: selectedPlan?.maxMembers || 10
+                        }))
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Selecione um plano</option>
+                      {plans.map((plan) => (
+                        <option key={plan.id} value={plan.id}>
+                          {plan.name} - {plan.price === 0 ? 'Grátis' : `R$ ${plan.price.toFixed(2)}/mês`}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 
                 <div>

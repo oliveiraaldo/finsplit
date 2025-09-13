@@ -60,12 +60,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Acesso negado' }, { status: 403 })
     }
 
-    const { name, plan, status, hasWhatsApp, credits, maxGroups, maxMembers } = await request.json()
+    const { name, planId, status, hasWhatsApp, credits, maxGroups, maxMembers } = await request.json()
 
     // Validações
     if (!name) {
       return NextResponse.json(
         { message: 'Nome da empresa é obrigatório' },
+        { status: 400 }
+      )
+    }
+
+    if (!planId) {
+      return NextResponse.json(
+        { message: 'Plano é obrigatório' },
+        { status: 400 }
+      )
+    }
+
+    // Buscar detalhes do plano
+    const selectedPlan = await prisma.plan.findUnique({
+      where: { id: planId, isActive: true }
+    })
+
+    if (!selectedPlan) {
+      return NextResponse.json(
+        { message: 'Plano não encontrado ou inativo' },
         { status: 400 }
       )
     }
@@ -86,12 +105,13 @@ export async function POST(request: NextRequest) {
     const tenant = await prisma.tenant.create({
       data: {
         name,
-        plan: plan || 'FREE',
+        plan: selectedPlan.price === 0 ? 'FREE' : 'PREMIUM',
+        planId: selectedPlan.id,
         status: status || 'ACTIVE',
-        hasWhatsApp: hasWhatsApp || false,
-        credits: credits || 0,
-        maxGroups: maxGroups || 5,
-        maxMembers: maxMembers || 10
+        hasWhatsApp: hasWhatsApp !== undefined ? hasWhatsApp : selectedPlan.hasWhatsApp,
+        credits: credits !== undefined ? credits : selectedPlan.creditsIncluded,
+        maxGroups: maxGroups !== undefined ? maxGroups : selectedPlan.maxGroups,
+        maxMembers: maxMembers !== undefined ? maxMembers : selectedPlan.maxMembers
       },
       select: {
         id: true,
