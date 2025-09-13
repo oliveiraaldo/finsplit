@@ -21,10 +21,34 @@ export async function POST(request: NextRequest) {
 
     // Buscar usuário pelo telefone
     console.log('🔍 Buscando usuário no banco de dados...')
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { phone },
       include: { tenant: true }
     })
+
+    // Se não encontrou, tentar busca flexível
+    if (!user) {
+      console.log('🔍 Tentando busca flexível...')
+      
+      // Extrair apenas os dígitos do telefone
+      const phoneDigits = phone.replace(/\D/g, '')
+      console.log('🔢 Dígitos extraídos:', phoneDigits)
+      
+      // Buscar por telefones que contenham esses dígitos
+      const users = await prisma.user.findMany({
+        where: {
+          phone: {
+            contains: phoneDigits.slice(-11) // Últimos 11 dígitos (DDD + número)
+          }
+        },
+        include: { tenant: true }
+      })
+      
+      if (users.length > 0) {
+        user = users[0] // Pegar o primeiro encontrado
+        console.log('✅ Usuário encontrado com busca flexível:', { id: user.id, name: user.name, phone: user.phone })
+      }
+    }
 
     console.log('👤 Usuário encontrado:', user ? { id: user.id, name: user.name, phone: user.phone } : 'null')
 
