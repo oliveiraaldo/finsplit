@@ -30,6 +30,19 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       console.log('❌ Usuário não encontrado, enviando mensagem de erro...')
+      console.log('🔍 Telefone buscado:', phone)
+      console.log('🔍 From original:', from)
+      
+      // Buscar todos os usuários para debug
+      const allUsers = await prisma.user.findMany({
+        select: { name: true, phone: true, email: true }
+      })
+      
+      console.log('📱 Todos os usuários no banco:')
+      allUsers.forEach(u => {
+        console.log(`  - ${u.name}: "${u.phone}" (${u.email})`)
+      })
+      
       await sendWhatsAppMessage(from, 'Usuário não encontrado. Por favor, cadastre-se no FinSplit primeiro.')
       return NextResponse.json({ message: 'Usuário não encontrado' })
     }
