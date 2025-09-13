@@ -5,11 +5,15 @@ import { twilioClient } from '@/lib/twilio'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔔 Webhook do Twilio recebido:', new Date().toISOString())
+    
     const formData = await request.formData()
     const from = formData.get('From') as string
     const body = formData.get('Body') as string
     const mediaUrl = formData.get('MediaUrl0') as string
     const messageSid = formData.get('MessageSid') as string
+    
+    console.log('📱 Dados recebidos:', { from, body: body?.substring(0, 50), hasMedia: !!mediaUrl, messageSid })
 
     // Remover prefixo "whatsapp:" do número
     const phone = from.replace('whatsapp:', '')
