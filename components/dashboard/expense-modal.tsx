@@ -200,6 +200,29 @@ export function ExpenseModal({
     }
   }
 
+  // Função para detectar se é um arquivo de imagem
+  const isImageFile = (url: string, mediaType?: string) => {
+    // Verificar por mediaType primeiro
+    if (mediaType) {
+      return mediaType.startsWith('image/')
+    }
+    
+    // Verificar por extensão na URL
+    const imageExtensions = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i
+    return imageExtensions.test(url)
+  }
+
+  // Função para obter URL de exibição do recibo
+  const getReceiptDisplayUrl = (receiptUrl: string, expenseId: string) => {
+    // Se for URL do Twilio ou externa, usar o proxy
+    if (receiptUrl.includes('api.twilio.com') || receiptUrl.startsWith('http')) {
+      return `/api/receipts/proxy?url=${encodeURIComponent(receiptUrl)}&expenseId=${expenseId}`
+    }
+    
+    // Se for URL interna (upload direto), usar diretamente
+    return receiptUrl
+  }
+
   if (!expense) return null
 
   return (
@@ -379,18 +402,17 @@ export function ExpenseModal({
               <div className="border rounded-lg overflow-hidden bg-white">
                 {/* Preview da imagem ou documento */}
                 <div className="bg-gray-50 dark:bg-gray-800 p-4">
-                  {expense.receiptUrl.includes('image') || 
-                   expense.mediaType === 'image' || 
-                   expense.receiptUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                  {isImageFile(expense.receiptUrl, expense.mediaType) ? (
                     // Se for imagem, mostrar preview
                     <div className="space-y-3">
                       <div className="relative group">
                         <img
-                          src={`/api/receipts/proxy?url=${encodeURIComponent(expense.receiptUrl)}&expenseId=${expense.id}`}
+                          src={getReceiptDisplayUrl(expense.receiptUrl, expense.id)}
                           alt="Comprovante da despesa"
-                          className="max-w-full h-auto max-h-96 mx-auto rounded-lg shadow-sm border"
+                          className="max-w-full h-auto max-h-96 mx-auto rounded-lg shadow-sm border bg-white"
                           style={{ objectFit: 'contain' }}
                           onError={(e) => {
+                            console.error('Erro ao carregar imagem:', expense.receiptUrl)
                             e.currentTarget.style.display = 'none'
                             e.currentTarget.nextElementSibling?.classList?.remove('hidden')
                           }}
@@ -398,8 +420,24 @@ export function ExpenseModal({
                         <div className="hidden text-center py-8">
                           <Receipt className="h-12 w-12 mx-auto text-gray-400 mb-2" />
                           <p className="text-sm text-gray-500">Erro ao carregar imagem</p>
+                          <p className="text-xs text-gray-400 mt-1">URL: {expense.receiptUrl}</p>
                         </div>
                       </div>
+                    </div>
+                  ) : expense.mediaType === 'application/pdf' || expense.receiptUrl.includes('.pdf') ? (
+                    // Se for PDF, mostrar ícone específico
+                    <div className="text-center py-8">
+                      <div className="h-12 w-12 mx-auto text-red-500 mb-3">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <p className="text-sm font-medium text-gray-700 mb-1">
+                        Documento PDF
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {expense.documentType || 'PDF'} • Clique para abrir
+                      </p>
                     </div>
                   ) : (
                     // Se for outro tipo de documento
@@ -425,14 +463,19 @@ export function ExpenseModal({
                     )}
                     {expense.aiExtracted && (
                       <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
-                        IA
+                        IA {expense.aiConfidence ? `(${(expense.aiConfidence * 100).toFixed(0)}%)` : ''}
+                      </span>
+                    )}
+                    {expense.receiptUrl.includes('api.twilio.com') && (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
+                        WhatsApp
                       </span>
                     )}
                   </div>
                   
                   <div className="flex items-center gap-2">
                     <a
-                      href={expense.receiptUrl}
+                      href={getReceiptDisplayUrl(expense.receiptUrl, expense.id)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"

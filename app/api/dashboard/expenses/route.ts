@@ -54,7 +54,14 @@ export async function GET(request: NextRequest) {
       status: expense.status,
       paidBy: expense.paidBy.name,
       groupName: expense.group.name,
-      category: expense.category?.name
+      category: expense.category?.name,
+      // Campos de recibo
+      receiptUrl: expense.receiptUrl,
+      receiptData: expense.receiptData,
+      mediaType: expense.mediaType,
+      documentType: expense.documentType,
+      aiExtracted: expense.aiExtracted,
+      aiConfidence: expense.aiConfidence ? Number(expense.aiConfidence) : null
     }))
 
     return NextResponse.json(formattedExpenses)
