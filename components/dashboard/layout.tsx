@@ -14,7 +14,6 @@ import {
   LogOut,
   Menu,
   X,
-  Bot,
   Tag
 } from 'lucide-react'
 
@@ -32,7 +31,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Despesas', href: '/dashboard/expenses', icon: Receipt },
     { name: 'Categorias', href: '/dashboard/categories', icon: Tag },
     { name: 'Relatórios', href: '/dashboard/reports', icon: BarChart3 },
-    { name: 'Testar Integrações', href: '/dashboard/test-integrations', icon: Bot },
     { name: 'Configurações', href: '/dashboard/settings', icon: Settings },
   ]
 
