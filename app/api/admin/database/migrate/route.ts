@@ -101,12 +101,12 @@ export async function POST(request: NextRequest) {
       settings: results.length
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Erro na migração:', error)
     return NextResponse.json(
       { 
         message: 'Erro na migração', 
-        error: error.message 
+        error: error.message || 'Erro desconhecido'
       },
       { status: 500 }
     )
