@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     const tenant = await prisma.tenant.create({
       data: {
         name: `${name} - Empresa`,
-        plan: role === 'ADMIN' ? 'PREMIUM' : 'BASIC',
+        plan: role === 'ADMIN' ? 'PREMIUM' : 'FREE',
         hasWhatsApp: role === 'ADMIN',
         credits: role === 'ADMIN' ? 1000 : 100,
         maxGroups: role === 'ADMIN' ? -1 : 5,
@@ -134,6 +134,7 @@ export async function POST(request: NextRequest) {
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
+        tenantId: session.user.tenantId,
         action: 'CREATE_USER',
         entity: 'User',
         entityId: user.id,
