@@ -37,6 +37,7 @@ model User {
   auditLogs     AuditLog[]
   uploadedFiles UploadedFile[]
   creditTransactions CreditTransaction[]
+  systemSettingsUpdates SystemSettings[]
 
   @@map("users")
 }
@@ -291,6 +292,23 @@ model CreditTransaction {
   createdBy   User   @relation(fields: [createdById], references: [id])
 
   @@map("credit_transactions")
+}
+
+model SystemSettings {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  category  String   // Ex: "general", "integrations", "security", "notifications"
+  description String?
+  isPublic  Boolean  @default(false) // Se pode ser acessado por usuários não-admin
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relacionamentos
+  updatedById String?
+  updatedBy   User?    @relation(fields: [updatedById], references: [id])
+
+  @@map("system_settings")
 }
 
 // Enums
