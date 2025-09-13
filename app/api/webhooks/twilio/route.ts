@@ -17,26 +17,35 @@ export async function POST(request: NextRequest) {
 
     // Remover prefixo "whatsapp:" do número
     const phone = from.replace('whatsapp:', '')
+    console.log('📞 Telefone processado:', phone)
 
     // Buscar usuário pelo telefone
+    console.log('🔍 Buscando usuário no banco de dados...')
     const user = await prisma.user.findUnique({
       where: { phone },
       include: { tenant: true }
     })
 
+    console.log('👤 Usuário encontrado:', user ? { id: user.id, name: user.name, phone: user.phone } : 'null')
+
     if (!user) {
+      console.log('❌ Usuário não encontrado, enviando mensagem de erro...')
       await sendWhatsAppMessage(from, 'Usuário não encontrado. Por favor, cadastre-se no FinSplit primeiro.')
       return NextResponse.json({ message: 'Usuário não encontrado' })
     }
 
     // Verificar se o tenant tem WhatsApp habilitado
+    console.log('🏢 Verificando plano WhatsApp:', { hasWhatsApp: user.tenant.hasWhatsApp, credits: user.tenant.credits })
+    
     if (!user.tenant.hasWhatsApp) {
+      console.log('❌ WhatsApp não habilitado para este tenant')
       await sendWhatsAppMessage(from, 'Seu plano atual não inclui integração com WhatsApp. Faça upgrade para Premium.')
       return NextResponse.json({ message: 'WhatsApp não habilitado' })
     }
 
     // Verificar se tem créditos
     if (user.tenant.credits <= 0) {
+      console.log('❌ Sem créditos suficientes:', user.tenant.credits)
       await sendWhatsAppMessage(from, 'Você não tem créditos suficientes. Entre em contato com o suporte.')
       return NextResponse.json({ message: 'Sem créditos' })
     }
