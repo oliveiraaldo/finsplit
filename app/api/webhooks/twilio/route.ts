@@ -419,7 +419,7 @@ async function handleTextMessage(from: string, body: string, user: any) {
     return await handleGroupCreation(from, text, user, userState)
   }
 
-  if (text === 'sim' || text === 'yes' || text === 'confirmar') {
+  if (text.toLowerCase() === 'sim' || text.toLowerCase() === 'yes' || text.toLowerCase() === 'confirmar') {
     console.log('✅ Usuário confirmando despesa...')
     // Verificar se o usuário está aguardando confirmação com grupo selecionado
     const currentUserState = await getUserState(user.id)
@@ -1345,14 +1345,10 @@ async function handleGroupSelection(from: string, text: string, user: any, userS
         }
       })
 
-      await sendWhatsAppMessage(from, `✅ Novo grupo criado: "${newGroup.name}"\n\nAgora responda "sim" para confirmar a despesa neste grupo.`)
-      
-      // Atualizar estado do usuário para aguardar confirmação
-      await setUserState(user.id, { 
-        action: 'WAITING_CONFIRMATION', 
-        groupId: newGroup.id,
-        pendingExpenseId: userState.pendingExpenseId, // Manter ID da despesa se existir
-        pendingExpenseData: userState.pendingExpenseData
+      // Usar o novo fluxo de confirmação final ao invés do antigo
+      return await showFinalConfirmation(from, user, {
+        ...userState,
+        selectedGroupId: newGroup.id
       })
       
     } else if (selection > 0 && selection <= userState.userGroups.length) {
@@ -1360,20 +1356,11 @@ async function handleGroupSelection(from: string, text: string, user: any, userS
       const selectedGroup = userState.userGroups[selection - 1]
       
       
-      await sendWhatsAppMessage(from, `✅ Grupo selecionado: "${selectedGroup.name}"\n\nAgora responda "sim" para confirmar a despesa neste grupo.`)
-      
-      // Atualizar estado do usuário para aguardar confirmação
-      const newState = { 
-        action: 'WAITING_CONFIRMATION', 
-        groupId: selectedGroup.id,
-        pendingExpenseId: userState.pendingExpenseId, // Manter ID da despesa
-        pendingExpenseData: userState.pendingExpenseData // Manter dados da despesa
-      }
-      
-      console.log('🔄 Definindo novo estado:', newState)
-      await setUserState(user.id, newState)
-      
-      console.log('✅ Estado atualizado, aguardando confirmação...')
+      // Usar o novo fluxo de confirmação final ao invés do antigo
+      return await showFinalConfirmation(from, user, {
+        ...userState,
+        selectedGroupId: selectedGroup.id
+      })
       
     } else {
       await sendWhatsAppMessage(from, `❌ Número inválido. Digite um número entre 1 e ${userState.userGroups.length}, ou "0" para novo grupo.`)
@@ -1562,12 +1549,11 @@ Agora você já pode usar esse grupo para organizar suas despesas.
 
 👍 Responda *"sim"* para confirmar e registrar seu recibo neste grupo.`)
     
-    // Atualizar estado para aguardar confirmação
-    await setUserState(user.id, { 
-      action: 'WAITING_CONFIRMATION', 
-      groupId: newGroup.id,
-      pendingExpenseId: userState.pendingExpenseId, // Manter ID da despesa
-      pendingExpenseData: userState.pendingExpenseData
+    // Usar o novo fluxo de confirmação final
+    await setUserState(user.id, {
+      ...userState,
+      action: 'FINAL_CONFIRMATION',
+      selectedGroupId: newGroup.id
     })
     
     return NextResponse.json({ message: 'Grupo criado com sucesso' })
@@ -2014,9 +2000,9 @@ Tipo: ${userState.extractedData.tipo}
 
 async function handleFinalConfirmation(from: string, text: string, user: any, userState: any) {
   try {
-    const choice = text.trim()
+    const choice = text.trim().toLowerCase()
     
-    if (choice === '1') {
+    if (choice === '1' || choice === 'sim' || choice === 'confirmar') {
       // Salvar despesa
       console.log('💾 Salvando despesa no banco...')
       
@@ -2084,7 +2070,7 @@ Envie outra foto quando quiser 📸`
       
       return NextResponse.json({ message: 'Despesa salva com sucesso' })
       
-    } else if (choice === '2') {
+    } else if (choice === '2' || choice === 'editar' || choice === 'corrigir') {
       // Voltar para edição - mostrar resumo novamente
       await showReceiptSummary(from, userState.extractedData)
       
