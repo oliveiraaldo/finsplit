@@ -1668,18 +1668,18 @@ async function handleReceiptFieldEdit(from: string, text: string, user: any, use
         const validation = validateValue(newValue)
         if (!validation.isValid) {
           isValid = false
-          errorMessage = validation.error
+          errorMessage = validation.error || 'Valor inválido'
         } else {
-          updatedValue = validation.value
+          updatedValue = validation.value?.toString() || newValue
         }
         break
       case 'data':
         const dateValidation = validateDate(newValue)
         if (!dateValidation.isValid) {
           isValid = false
-          errorMessage = dateValidation.error
+          errorMessage = dateValidation.error || 'Data inválida'
         } else {
-          updatedValue = dateValidation.value
+          updatedValue = dateValidation.value || newValue
         }
         break
       case 'recebedor':
