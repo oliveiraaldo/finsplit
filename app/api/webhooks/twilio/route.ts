@@ -122,14 +122,7 @@ export async function POST(request: NextRequest) {
         return await handleExistingUserOnboarding(from, user)
       }
       
-      // Verificar se é confirmação de recibo
-      if (body === '1' || body.toLowerCase().includes('confirmar')) {
-        return await handleReceiptConfirmation(from, user, true)
-      }
-      
-      if (body === '2' || body.toLowerCase().includes('corrigir')) {
-        return await handleReceiptConfirmation(from, user, false)
-      }
+      // Nota: Confirmações de recibo agora são tratadas pelo sistema de estados em handleTextMessage
       
       return await handleTextMessage(from, body, user)
     }
@@ -184,12 +177,18 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
     console.log('  - Content-Length:', contentLength)
     console.log('  - Buffer size:', mediaBuffer.byteLength)
     
-    // Verificar se é realmente uma imagem
-    if (!contentType || !contentType.startsWith('image/')) {
-      console.log('❌ Não é uma imagem válida. Content-Type:', contentType)
-      console.log('📄 Conteúdo recebido (primeiros 200 chars):', Buffer.from(mediaBuffer).toString('utf8').substring(0, 200))
-      throw new Error(`Formato inválido: ${contentType}. Esperado: image/*`)
+    // Verificar se é um tipo de arquivo aceito (imagens e PDFs)
+    const isImage = contentType && contentType.startsWith('image/')
+    const isPdf = contentType && contentType.includes('pdf')
+    const isAcceptedType = isImage || isPdf
+    
+    if (!contentType || !isAcceptedType) {
+      console.log('❌ Tipo de arquivo não aceito. Content-Type:', contentType)
+      console.log('📄 Tipos aceitos: image/* ou application/pdf')
+      throw new Error(`Formato inválido: ${contentType}. Esperado: image/* ou PDF`)
     }
+    
+    console.log('✅ Tipo detectado:', isImage ? 'Imagem' : 'PDF')
     
     if (mediaBuffer.byteLength < 1000) {
       throw new Error(`Imagem muito pequena: ${mediaBuffer.byteLength} bytes. Mínimo esperado: 1000 bytes`)
@@ -260,6 +259,11 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
 
       await sendWhatsAppMessage(from, duplicateMessage)
       
+      // Determinar tipos de mídia e documento
+      const contentType = await getMediaContentType(mediaUrl)
+      const isImage = contentType?.startsWith('image/')
+      const isPdf = contentType?.includes('pdf')
+      
       // Salvar despesa como pendente para confirmação
       const expense = await prisma.expense.create({
         data: {
@@ -271,6 +275,8 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
           receiptData: extractionResult.data,
           aiExtracted: true,
           aiConfidence: extractionResult.confidence,
+          mediaType: contentType || 'application/octet-stream',
+          documentType: isImage ? 'recibo' : isPdf ? 'nota_fiscal' : 'comprovante',
           paidBy: {
             connect: { id: user.id }
           },
@@ -548,6 +554,27 @@ Ou simplesmente envie um recibo e eu organizo os dados pra você ✨`
   }
 
   return NextResponse.json({ message: 'Mensagem processada' })
+}
+
+async function getMediaContentType(mediaUrl: string): Promise<string | null> {
+  try {
+    console.log('🔍 Buscando Content-Type da mídia:', mediaUrl)
+    
+    const response = await fetch(mediaUrl, {
+      method: 'HEAD', // Apenas headers, não o conteúdo
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64')}`
+      }
+    })
+    
+    const contentType = response.headers.get('content-type')
+    console.log('📋 Content-Type detectado:', contentType)
+    
+    return contentType
+  } catch (error) {
+    console.error('❌ Erro ao buscar Content-Type:', error)
+    return null
+  }
 }
 
 async function extractReceiptData(base64Image: string) {
