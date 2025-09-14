@@ -21,53 +21,85 @@ export async function POST(request: NextRequest) {
 
     // Buscar usuário pelo telefone
     console.log('🔍 Buscando usuário no banco de dados...')
+    console.log('📞 Telefone formatado para busca:', phone)
+    
     let user = await prisma.user.findUnique({
       where: { phone },
       include: { tenant: true }
     })
 
-    // Se não encontrou, tentar busca flexível
+    // Se não encontrou, tentar várias estratégias de busca
     if (!user) {
-      console.log('🔍 Tentando busca flexível...')
+      console.log('🔍 Primeira busca não encontrou, tentando estratégias alternativas...')
       
-      // Extrair apenas os dígitos do telefone
+      // Estratégia 1: Extrair apenas os dígitos
       const phoneDigits = phone.replace(/\D/g, '')
       console.log('🔢 Dígitos extraídos:', phoneDigits)
       
-      // Buscar por telefones que contenham esses dígitos
-      const users = await prisma.user.findMany({
-        where: {
-          phone: {
-            contains: phoneDigits.slice(-11) // Últimos 11 dígitos (DDD + número)
-          }
-        },
-        include: { tenant: true }
-      })
+      // Estratégia 2: Buscar com diferentes formatos possíveis
+      const searchFormats = [
+        phone, // Formato original
+        `+${phoneDigits}`, // Com + na frente
+        phoneDigits, // Só números
+        phoneDigits.slice(-11), // Últimos 11 dígitos
+        `+55${phoneDigits.slice(-11)}`, // Brasil específico
+      ]
       
-      if (users.length > 0) {
-        user = users[0] // Pegar o primeiro encontrado
-        console.log('✅ Usuário encontrado com busca flexível:', { id: user.id, name: user.name, phone: user.phone })
+      console.log('📱 Formatos de busca:', searchFormats)
+      
+      for (const format of searchFormats) {
+        const users = await prisma.user.findMany({
+          where: {
+            OR: [
+              { phone: format },
+              { phone: { contains: format.slice(-11) } } // Últimos 11 dígitos
+            ]
+          },
+          include: { tenant: true }
+        })
+        
+        if (users.length > 0) {
+          user = users[0]
+          console.log('✅ Usuário encontrado com formato:', format)
+          console.log('👤 Dados do usuário:', { id: user.id, name: user.name, phone: user.phone })
+          break
+        }
       }
     }
 
     console.log('👤 Usuário encontrado:', user ? { id: user.id, name: user.name, phone: user.phone } : 'null')
 
     if (!user) {
-      console.log('❌ Usuário não encontrado, enviando mensagem promocional...')
-      console.log('🔍 Telefone buscado:', phone)
-      console.log('🔍 From original:', from)
+      console.log('❌ USUÁRIO NÃO ENCONTRADO COM NENHUMA ESTRATÉGIA')
+      console.log('🔍 Telefone original (from):', from)
+      console.log('🔍 Telefone processado:', phone)
       
-      // Buscar todos os usuários para debug
+      // Debug completo: mostrar todos os usuários
       const allUsers = await prisma.user.findMany({
-        select: { name: true, phone: true, email: true }
+        select: { name: true, phone: true, email: true, createdAt: true }
       })
       
-      console.log('📱 Todos os usuários no banco:')
-      allUsers.forEach(u => {
-        console.log(`  - ${u.name}: "${u.phone}" (${u.email})`)
+      console.log('📱 TODOS OS USUÁRIOS NO BANCO:')
+      allUsers.forEach((u, index) => {
+        console.log(`  ${index + 1}. ${u.name} (${u.email})`)
+        console.log(`     📞 Telefone: "${u.phone}"`)
+        console.log(`     📅 Cadastrado: ${u.createdAt}`)
+        console.log('') // linha vazia
       })
       
-      // Gerar mensagem promocional com planos disponíveis
+      console.log('⚠️  POSSÍVEIS CAUSAS:')
+      console.log('   1. Usuário não cadastrado (normal - enviar promocional)')
+      console.log('   2. Telefone cadastrado em formato diferente')
+      console.log('   3. Problema na formatação do WhatsApp')
+      
+      // Se o usuário parece brasileiro mas não foi encontrado, pode ser problema de formato
+      const phoneDigits = phone.replace(/\D/g, '')
+      if (phoneDigits.startsWith('55') && phoneDigits.length >= 12) {
+        console.log('🇧🇷 Parece ser número brasileiro não cadastrado ou com problema de formato')
+      }
+      
+      // Gerar mensagem promocional APENAS para usuários realmente novos
+      console.log('📤 Enviando mensagem promocional para usuário não cadastrado')
       const promotionalMessage = await generatePromotionalMessage()
       await sendWhatsAppMessage(from, promotionalMessage)
       return NextResponse.json({ message: 'Usuário não encontrado - mensagem promocional enviada' })
