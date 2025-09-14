@@ -131,18 +131,20 @@ export default function GroupsPage() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Meus Grupos</h1>
-            <p className="text-gray-600 mt-2">Gerencie todos os seus grupos de despesas</p>
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex-1">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Meus Grupos</h1>
+              <p className="text-gray-600 mt-1">Gerencie todos os seus grupos de despesas</p>
+            </div>
+            
+            <Link href="/dashboard/groups/new">
+              <Button className="w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Grupo
+              </Button>
+            </Link>
           </div>
-          
-          <Link href="/dashboard/groups/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Grupo
-            </Button>
-          </Link>
         </div>
 
         {/* Filtros e Busca */}

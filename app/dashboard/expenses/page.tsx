@@ -238,18 +238,20 @@ export default function ExpensesPage() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Minhas Despesas</h1>
-            <p className="text-gray-600 mt-2">Gerencie todas as suas despesas e pagamentos</p>
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex-1">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Minhas Despesas</h1>
+              <p className="text-gray-600 mt-1">Gerencie todas as suas despesas e pagamentos</p>
+            </div>
+            
+            <Link href="/dashboard/expenses/new">
+              <Button className="w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Despesa
+              </Button>
+            </Link>
           </div>
-          
-          <Link href="/dashboard/expenses/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Despesa
-            </Button>
-          </Link>
         </div>
 
         {/* Filtros e Busca */}

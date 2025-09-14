@@ -423,27 +423,32 @@ Relatório gerado automaticamente pelo FinSplit
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Relatórios Avançados</h1>
-            <p className="text-gray-600 mt-2">
-              Análises detalhadas com {stats.totalExpenses} despesas totalizando R$ {stats.totalAmount.toFixed(2)}
-            </p>
-          </div>
-          
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={refreshData} disabled={isRefreshing}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Atualizar
-            </Button>
-            <Button variant="outline" onClick={exportToCSV}>
-              <Download className="mr-2 h-4 w-4" />
-              CSV
-            </Button>
-            <Button onClick={exportDetailedReport}>
-              <FileText className="mr-2 h-4 w-4" />
-              Relatório Completo
-            </Button>
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex-1">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Relatórios Avançados</h1>
+              <p className="text-gray-600 mt-1">
+                Análises detalhadas com {stats.totalExpenses} despesas totalizando R$ {stats.totalAmount.toFixed(2)}
+              </p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={refreshData} disabled={isRefreshing} className="w-full sm:w-auto">
+                <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Atualizar</span>
+                <span className="sm:hidden">Refresh</span>
+              </Button>
+              <Button variant="outline" onClick={exportToCSV} className="w-full sm:w-auto">
+                <Download className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Exportar CSV</span>
+                <span className="sm:hidden">CSV</span>
+              </Button>
+              <Button onClick={exportDetailedReport} className="w-full sm:w-auto">
+                <FileText className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Relatório Completo</span>
+                <span className="sm:hidden">PDF</span>
+              </Button>
+            </div>
           </div>
         </div>
 

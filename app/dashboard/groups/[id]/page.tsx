@@ -194,30 +194,35 @@ export default function GroupDetailsPage() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <Link href="/dashboard" className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-2">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar ao Dashboard
-            </Link>
-            <h1 className="text-3xl font-bold text-gray-900">{group.name}</h1>
-            <p className="text-gray-600 mt-2">{group.description}</p>
-          </div>
-          
-          <div className="flex gap-3">
-            {canAddMembers && (
-              <Button 
-                variant="outline"
-                onClick={() => setIsAddMemberModalOpen(true)}
-              >
-                <UserPlus className="mr-2 h-4 w-4" />
-                Adicionar Membro
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex-1">
+              <Link href="/dashboard" className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-2">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar ao Dashboard
+              </Link>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{group.name}</h1>
+              <p className="text-gray-600 mt-1">{group.description}</p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3">
+              {canAddMembers && (
+                <Button 
+                  variant="outline"
+                  onClick={() => setIsAddMemberModalOpen(true)}
+                  className="w-full sm:w-auto"
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Adicionar Membro</span>
+                  <span className="sm:hidden">Membro</span>
+                </Button>
+              )}
+              <Button className="w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Nova Despesa</span>
+                <span className="sm:hidden">Despesa</span>
               </Button>
-            )}
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Despesa
-            </Button>
+            </div>
           </div>
         </div>
 
