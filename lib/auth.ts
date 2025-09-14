@@ -7,8 +7,6 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -24,6 +22,7 @@ export const authOptions: NextAuthOptions = {
       from: process.env.EMAIL_FROM || 'FinSplit <noreply@finsplit.app>',
       sendVerificationRequest: async ({ identifier, url, provider }) => {
         try {
+          const resend = new Resend(process.env.RESEND_API_KEY)
           await resend.emails.send({
             from: provider.from,
             to: identifier,
