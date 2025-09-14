@@ -155,14 +155,13 @@ export default function CategoriesPage() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <span className="text-2xl">{category.icon}</span>
+                      <div 
+                        className="w-8 h-8 rounded-lg flex-shrink-0 shadow-sm border border-gray-200"
+                        style={{ backgroundColor: category.color }}
+                      />
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{category.name}</span>
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: category.color }}
-                          />
                         </div>
                         {category._count && (
                           <p className="text-xs text-gray-500">
