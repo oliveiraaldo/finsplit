@@ -364,6 +364,7 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
     await setUserState(user.id, { 
       action: userGroups.length > 0 ? 'SELECTING_GROUP' : 'NEEDS_GROUP_CREATION', 
       userGroups: userGroups,
+      pendingExpenseId: expense.id, // Salvar ID da despesa criada como PENDING
       pendingExpenseData: {
         description: extractionResult.data.recebedor?.nome || extractionResult.data.estabelecimento?.nome,
         amount: extractionResult.data.totais?.total_final || extractionResult.data.amount,
@@ -429,27 +430,15 @@ async function handleTextMessage(from: string, body: string, user: any) {
     const currentUserState = await getUserState(user.id)
     
     if (currentUserState && currentUserState.action === 'WAITING_CONFIRMATION') {
-              console.log('🎯 Criando despesa no grupo:', currentUserState.groupId)
-        console.log('📊 Dados da despesa:', currentUserState.pendingExpenseData)
+        console.log('🎯 Confirmando despesa no grupo:', currentUserState.groupId)
+        console.log('📊 Atualizando despesa ID:', currentUserState.pendingExpenseId)
         
-        // Criar despesa no grupo selecionado
-        const expense = await prisma.expense.create({
+        // Atualizar despesa existente ao invés de criar nova
+        const expense = await prisma.expense.update({
+          where: { id: currentUserState.pendingExpenseId },
           data: {
-            description: currentUserState.pendingExpenseData.description,
-            amount: currentUserState.pendingExpenseData.amount,
-            date: currentUserState.pendingExpenseData.date,
             status: 'CONFIRMED',
-            receiptUrl: currentUserState.pendingExpenseData.mediaUrl,
-            receiptData: currentUserState.pendingExpenseData.receiptData,
-            aiExtracted: true,
-            aiConfidence: 0.95,
-            paidBy: {
-              connect: { id: user.id }
-            },
-            group: {
-              connect: { id: currentUserState.groupId }
-            },
-            categoryId: undefined
+            groupId: currentUserState.groupId // Mover para o grupo selecionado
           }
         })
         
@@ -1343,7 +1332,12 @@ async function handleGroupSelection(from: string, text: string, user: any, userS
       await sendWhatsAppMessage(from, `✅ Novo grupo criado: "${newGroup.name}"\n\nAgora responda "sim" para confirmar a despesa neste grupo.`)
       
       // Atualizar estado do usuário para aguardar confirmação
-      await setUserState(user.id, { action: 'WAITING_CONFIRMATION', groupId: newGroup.id })
+      await setUserState(user.id, { 
+        action: 'WAITING_CONFIRMATION', 
+        groupId: newGroup.id,
+        pendingExpenseId: userState.pendingExpenseId, // Manter ID da despesa se existir
+        pendingExpenseData: userState.pendingExpenseData
+      })
       
     } else if (selection > 0 && selection <= userState.userGroups.length) {
       // Selecionar grupo existente do usuário
@@ -1356,6 +1350,7 @@ async function handleGroupSelection(from: string, text: string, user: any, userS
       const newState = { 
         action: 'WAITING_CONFIRMATION', 
         groupId: selectedGroup.id,
+        pendingExpenseId: userState.pendingExpenseId, // Manter ID da despesa
         pendingExpenseData: userState.pendingExpenseData // Manter dados da despesa
       }
       
@@ -1474,6 +1469,7 @@ Digite o número da opção ou o nome do grupo personalizado:`
     // Atualizar estado para aguardar nome do grupo
     await setUserState(user.id, { 
       action: 'CREATING_FIRST_GROUP', 
+      pendingExpenseId: userState.pendingExpenseId, // Manter ID da despesa
       pendingExpenseData: userState.pendingExpenseData
     })
     
@@ -1519,6 +1515,7 @@ async function handleGroupCreation(from: string, text: string, user: any, userSt
         await sendWhatsAppMessage(from, '✍️ Digite o nome do seu grupo personalizado:')
         await setUserState(user.id, { 
           action: 'TYPING_GROUP_NAME', 
+          pendingExpenseId: userState.pendingExpenseId, // Manter ID da despesa
           pendingExpenseData: userState.pendingExpenseData
         })
         return NextResponse.json({ message: 'Aguardando nome personalizado' })
@@ -1553,6 +1550,7 @@ Agora você já pode usar esse grupo para organizar suas despesas.
     await setUserState(user.id, { 
       action: 'WAITING_CONFIRMATION', 
       groupId: newGroup.id,
+      pendingExpenseId: userState.pendingExpenseId, // Manter ID da despesa
       pendingExpenseData: userState.pendingExpenseData
     })
     
