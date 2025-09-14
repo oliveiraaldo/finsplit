@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { createOnboardingToken, validateOnboardingToken, extractTokenFromMessage, generateReturnMessage } from '@/lib/onboarding-token'
 import { openai } from '@/lib/openai'
 import { twilioClient } from '@/lib/twilio'
 
@@ -70,36 +71,23 @@ export async function POST(request: NextRequest) {
     console.log('👤 Usuário encontrado:', user ? { id: user.id, name: user.name, phone: user.phone } : 'null')
 
     if (!user) {
-      console.log('❌ USUÁRIO NÃO ENCONTRADO COM NENHUMA ESTRATÉGIA')
-      console.log('🔍 Telefone original (from):', from)
-      console.log('🔍 Telefone processado:', phone)
+      console.log('❌ USUÁRIO NÃO ENCONTRADO')
+      console.log('📞 Telefone:', phone)
       
-      // Debug completo: mostrar todos os usuários
-      const allUsers = await prisma.user.findMany({
-        select: { name: true, phone: true, email: true, createdAt: true }
-      })
-      
-      console.log('📱 TODOS OS USUÁRIOS NO BANCO:')
-      allUsers.forEach((u, index) => {
-        console.log(`  ${index + 1}. ${u.name} (${u.email})`)
-        console.log(`     📞 Telefone: "${u.phone}"`)
-        console.log(`     📅 Cadastrado: ${u.createdAt}`)
-        console.log('') // linha vazia
-      })
-      
-      console.log('⚠️  POSSÍVEIS CAUSAS:')
-      console.log('   1. Usuário não cadastrado (normal - enviar promocional)')
-      console.log('   2. Telefone cadastrado em formato diferente')
-      console.log('   3. Problema na formatação do WhatsApp')
-      
-      // Se o usuário parece brasileiro mas não foi encontrado, pode ser problema de formato
-      const phoneDigits = phone.replace(/\D/g, '')
-      if (phoneDigits.startsWith('55') && phoneDigits.length >= 12) {
-        console.log('🇧🇷 Parece ser número brasileiro não cadastrado ou com problema de formato')
+      // Verificar se a mensagem contém token de retorno do onboarding
+      if (body && body.toLowerCase().includes('voltei do cadastro')) {
+        console.log('🔄 RETORNO DO ONBOARDING DETECTADO')
+        return await handleOnboardingReturn(from, body)
       }
       
-      // Gerar mensagem promocional APENAS para usuários realmente novos
-      console.log('📤 Enviando mensagem promocional para usuário não cadastrado')
+      // Verificar se usuário digitou "onboarding" para iniciar cadastro guiado
+      if (body && body.toLowerCase().includes('onboarding')) {
+        console.log('🚀 ONBOARDING SOLICITADO PELO USUÁRIO')
+        return await handleNewUserOnboarding(from, phone)
+      }
+      
+      // Caso contrário, enviar mensagem promocional normal
+      console.log('📤 Enviando mensagem promocional padrão')
       const promotionalMessage = await generatePromotionalMessage()
       await sendWhatsAppMessage(from, promotionalMessage)
       return NextResponse.json({ message: 'Usuário não encontrado - mensagem promocional enviada' })
@@ -128,6 +116,21 @@ export async function POST(request: NextRequest) {
 
     // Se recebeu texto
     if (body) {
+      // Verificar se usuário existente quer refazer onboarding
+      if (body.toLowerCase().includes('onboarding')) {
+        console.log('🔄 USUÁRIO EXISTENTE SOLICITOU ONBOARDING')
+        return await handleExistingUserOnboarding(from, user)
+      }
+      
+      // Verificar se é confirmação de recibo
+      if (body === '1' || body.toLowerCase().includes('confirmar')) {
+        return await handleReceiptConfirmation(from, user, true)
+      }
+      
+      if (body === '2' || body.toLowerCase().includes('corrigir')) {
+        return await handleReceiptConfirmation(from, user, false)
+      }
+      
       return await handleTextMessage(from, body, user)
     }
 
@@ -781,12 +784,181 @@ async function sendWhatsAppMessage(to: string, body: string) {
   }
 }
 
+// ===== ONBOARDING FUNCTIONS =====
+
+async function handleNewUserOnboarding(from: string, phone: string) {
+  try {
+    // Criar token de onboarding
+    const onboardingToken = createOnboardingToken(phone)
+    
+    // Montar URL de onboarding
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://finsplit.app'
+    const onboardingUrl = `${baseUrl}/onboarding?token=${onboardingToken}&phone=${encodeURIComponent(phone)}`
+    
+    const message = `🚀 *Onboarding FinSplit*
+
+Em 1 minuto você ativa sua conta, cria um grupo e já lança sua primeira despesa.
+
+🔗 *Criar minha conta agora:*
+${onboardingUrl}
+
+Depois de concluir, volte aqui que já te mostro como enviar o recibo! 📸`
+
+    await sendWhatsAppMessage(from, message)
+    return NextResponse.json({ message: 'Onboarding iniciado para usuário novo' })
+  } catch (error) {
+    console.error('Erro ao iniciar onboarding:', error)
+    return NextResponse.json({ message: 'Erro no onboarding' }, { status: 500 })
+  }
+}
+
+async function handleExistingUserOnboarding(from: string, user: any) {
+  try {
+    // Criar novo token de onboarding para usuário existente
+    const phone = from.replace('whatsapp:', '')
+    const onboardingToken = createOnboardingToken(phone)
+    
+    // Montar URL de onboarding
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://finsplit.app'
+    const onboardingUrl = `${baseUrl}/onboarding?token=${onboardingToken}&phone=${encodeURIComponent(phone)}&existing=true`
+    
+    const message = `🔄 *Refazer Configuração*
+
+Olá ${user.name}! Vou te guiar novamente pelo processo de configuração.
+
+🔗 *Acessar configuração guiada:*
+${onboardingUrl}
+
+Você pode criar novos grupos, categorias e aprender a usar todas as funcionalidades! 🎯`
+
+    await sendWhatsAppMessage(from, message)
+    return NextResponse.json({ message: 'Onboarding iniciado para usuário existente' })
+  } catch (error) {
+    console.error('Erro ao iniciar onboarding para usuário existente:', error)
+    return NextResponse.json({ message: 'Erro no onboarding' }, { status: 500 })
+  }
+}
+
+async function handleOnboardingReturn(from: string, message: string) {
+  try {
+    // Extrair token da mensagem
+    const tokenPart = extractTokenFromMessage(message)
+    if (!tokenPart) {
+      await sendWhatsAppMessage(from, '❌ Token não encontrado. Tente refazer o cadastro.')
+      return NextResponse.json({ message: 'Token não encontrado' })
+    }
+
+    console.log('🔍 Token extraído:', tokenPart)
+    
+    // Buscar todos os tokens recentes e tentar encontrar um que termine com esse sufixo
+    // (Como só temos o final do token na mensagem)
+    const phone = from.replace('whatsapp:', '')
+    
+    // Tentar buscar usuário que acabou de ser criado pelo telefone
+    const recentUser = await prisma.user.findFirst({
+      where: {
+        phone: { contains: phone.slice(-11) },
+        createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) } // Últimos 30 minutos
+      },
+      include: { tenant: true },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    if (!recentUser) {
+      await sendWhatsAppMessage(from, '❌ Cadastro não encontrado. Tente refazer o processo.')
+      return NextResponse.json({ message: 'Usuário recente não encontrado' })
+    }
+
+    // Buscar grupo e categoria criados
+    const group = await prisma.group.findFirst({
+      where: { tenantId: recentUser.tenantId },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    const category = await prisma.category.findFirst({
+      where: { tenantId: recentUser.tenantId },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    const welcomeMessage = `🎉 Cadastro concluído!
+
+Seu grupo "${group?.name || 'Principal'}" e a categoria "${category?.name || 'Alimentação'}" já estão prontos.
+
+📸 Envie a foto do seu primeiro recibo aqui mesmo quando quiser.
+
+A IA vai extrair automaticamente:
+• Valor da despesa
+• Data e estabelecimento  
+• Categoria sugerida
+
+É só confirmar e pronto! 🚀`
+
+    await sendWhatsAppMessage(from, welcomeMessage)
+    return NextResponse.json({ message: 'Onboarding concluído com sucesso' })
+
+  } catch (error) {
+    console.error('Erro ao processar retorno do onboarding:', error)
+    await sendWhatsAppMessage(from, '❌ Erro no processo. Tente enviar uma foto de recibo diretamente.')
+    return NextResponse.json({ message: 'Erro no retorno do onboarding' }, { status: 500 })
+  }
+}
+
+async function handleReceiptConfirmation(from: string, user: any, confirm: boolean) {
+  try {
+    if (confirm) {
+      // Buscar último recibo em processo deste usuário
+      const lastReceipt = await prisma.expense.findFirst({
+        where: {
+          tenantId: user.tenantId,
+          status: 'PENDING' // Assumindo que tem esse status para recibos em análise
+        },
+        orderBy: { createdAt: 'desc' }
+      })
+
+      if (lastReceipt) {
+        // Confirmar recibo
+        await prisma.expense.update({
+          where: { id: lastReceipt.id },
+          data: { status: 'CONFIRMED' }
+        })
+
+        await sendWhatsAppMessage(from, `✅ Despesa lançada com sucesso!
+
+💰 Valor: R$ ${lastReceipt.amount.toFixed(2)}
+📅 Data: ${lastReceipt.date.toLocaleDateString('pt-BR')}
+
+Quer lançar outro recibo? É só mandar a foto! 📸`)
+      } else {
+        await sendWhatsAppMessage(from, '❌ Nenhum recibo para confirmar. Envie uma foto primeiro.')
+      }
+    } else {
+      // Solicitar correção
+      await sendWhatsAppMessage(from, `O que deseja corrigir?
+
+1️⃣ Grupo
+2️⃣ Recebedor
+3️⃣ Valor  
+4️⃣ Data
+5️⃣ Categoria
+
+Digite o número da opção:`)
+    }
+
+    return NextResponse.json({ message: 'Confirmação processada' })
+  } catch (error) {
+    console.error('Erro na confirmação:', error)
+    return NextResponse.json({ message: 'Erro na confirmação' }, { status: 500 })
+  }
+}
+
 // ===== COMANDOS DO WHATSAPP =====
 
 async function handleHelpCommand(from: string, user: any) {
   const helpMessage = `🤖 *Menu de Comandos do FinSplit*
 
 📱 *O que você pode fazer aqui:*
+
+🔄 *onboarding* → Refazer configuração guiada`
 
 🔹 Envie um *recibo* (foto) → IA organiza automaticamente
 🔹 Digite *saldo* → veja seus débitos e créditos  
