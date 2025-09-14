@@ -34,8 +34,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verificar se o telefone já existe
+    // Validar e verificar telefone
     if (phone) {
+      // Validar formato do telefone brasileiro
+      if (!validateBrazilianPhone(phone)) {
+        return NextResponse.json(
+          { message: 'Formato de telefone inválido. Use o formato brasileiro com DDD.' },
+          { status: 400 }
+        )
+      }
+
       const existingPhone = await prisma.user.findUnique({
         where: { phone }
       })
@@ -79,7 +87,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Criar tenant e usuário em uma transação
     const result = await prisma.$transaction(async (tx) => {
       // Criar tenant
       const tenant = await tx.tenant.create({
@@ -127,36 +134,36 @@ export async function POST(request: NextRequest) {
         switch (type) {
           case 'BUSINESS':
             return [
-              { name: 'Escritório', color: '#FF6B6B', icon: '🏢' },
-              { name: 'Transporte', color: '#4ECDC4', icon: '🚗' },
-              { name: 'Alimentação', color: '#45B7D1', icon: '🍽️' },
-              { name: 'Material', color: '#96CEB4', icon: '📦' },
-              { name: 'Serviços', color: '#FFEAA7', icon: '🔧' },
-              { name: 'Marketing', color: '#DDA0DD', icon: '📢' }
+              { name: 'Escritório', color: '#FF6B6B' },
+              { name: 'Transporte', color: '#4ECDC4' },
+              { name: 'Alimentação', color: '#45B7D1' },
+              { name: 'Material', color: '#96CEB4' },
+              { name: 'Serviços', color: '#FFEAA7' },
+              { name: 'Marketing', color: '#DDA0DD' }
             ]
           case 'FAMILY':
             return [
-              { name: 'Supermercado', color: '#FF6B6B', icon: '🛒' },
-              { name: 'Contas da Casa', color: '#4ECDC4', icon: '🏠' },
-              { name: 'Transporte', color: '#45B7D1', icon: '🚗' },
-              { name: 'Saúde', color: '#96CEB4', icon: '🏥' },
-              { name: 'Educação', color: '#FFEAA7', icon: '📚' },
-              { name: 'Lazer', color: '#DDA0DD', icon: '🎮' }
+              { name: 'Supermercado', color: '#FF6B6B' },
+              { name: 'Contas da Casa', color: '#4ECDC4' },
+              { name: 'Transporte', color: '#45B7D1' },
+              { name: 'Saúde', color: '#96CEB4' },
+              { name: 'Educação', color: '#FFEAA7' },
+              { name: 'Lazer', color: '#DDA0DD' }
             ]
           case 'PERSONAL':
             return [
-              { name: 'Alimentação', color: '#FF6B6B', icon: '🍽️' },
-              { name: 'Transporte', color: '#4ECDC4', icon: '🚗' },
-              { name: 'Compras', color: '#45B7D1', icon: '🛍️' },
-              { name: 'Entretenimento', color: '#96CEB4', icon: '🎮' },
-              { name: 'Saúde', color: '#FFEAA7', icon: '💊' },
-              { name: 'Outros', color: '#DDA0DD', icon: '📦' }
+              { name: 'Alimentação', color: '#FF6B6B' },
+              { name: 'Transporte', color: '#4ECDC4' },
+              { name: 'Compras', color: '#45B7D1' },
+              { name: 'Entretenimento', color: '#96CEB4' },
+              { name: 'Saúde', color: '#FFEAA7' },
+              { name: 'Outros', color: '#DDA0DD' }
             ]
           default:
             return [
-              { name: 'Alimentação', color: '#FF6B6B', icon: '🍽️' },
-              { name: 'Transporte', color: '#4ECDC4', icon: '🚗' },
-              { name: 'Outros', color: '#FFEAA7', icon: '📦' }
+              { name: 'Alimentação', color: '#FF6B6B' },
+              { name: 'Transporte', color: '#4ECDC4' },
+              { name: 'Outros', color: '#FFEAA7' }
             ]
         }
       }
@@ -206,6 +213,15 @@ export async function POST(request: NextRequest) {
         name: result.user.name,
         email: result.user.email,
         role: result.user.role
+      },
+      tenant: {
+        id: result.tenant.id,
+        name: result.tenant.name,
+        type: result.tenant.type
+      },
+      group: {
+        id: result.group.id,
+        name: result.group.name
       }
     })
 
@@ -216,6 +232,38 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+// Função para validar telefone brasileiro
+function validateBrazilianPhone(phone: string): boolean {
+  // Remove todos os caracteres não numéricos
+  const numbers = phone.replace(/\D/g, '')
+  
+  // Deve começar com 55 (código do Brasil)
+  if (!numbers.startsWith('55')) {
+    return false
+  }
+  
+  // Remove o código do país para validar o número brasileiro
+  const brazilianNumber = numbers.substring(2)
+  
+  // Deve ter 10 ou 11 dígitos (DDD + número)
+  if (brazilianNumber.length !== 10 && brazilianNumber.length !== 11) {
+    return false
+  }
+  
+  // DDD deve estar entre 11 e 99
+  const ddd = parseInt(brazilianNumber.substring(0, 2))
+  if (ddd < 11 || ddd > 99) {
+    return false
+  }
+  
+  // Se for celular (11 dígitos), deve começar com 9
+  if (brazilianNumber.length === 11 && brazilianNumber[2] !== '9') {
+    return false
+  }
+  
+  return true
 }
 
 // Função para enviar mensagem de boas-vindas no WhatsApp
@@ -234,7 +282,7 @@ Aqui você pode organizar suas finanças de forma simples e prática.
 👉 Alguns exemplos do que você já pode fazer:
 
 • Criar grupos para família, viagens, empresa ou amigos
-• Enviar recibos/notas fiscais e deixar a IA organizar automaticamente  
+• Enviar recibos/fotos e deixar a IA organizar automaticamente  
 • Acompanhar quem já pagou e quem ainda está devendo
 
 Digite *ajuda* para ver todas as opções ou envie já o seu primeiro recibo 📸`
@@ -252,4 +300,4 @@ Digite *ajuda* para ver todas as opções ou envie já o seu primeiro recibo �
     console.error('❌ Erro ao enviar mensagem de boas-vindas:', error)
     throw error
   }
-} 
+}
