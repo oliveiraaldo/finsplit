@@ -163,17 +163,11 @@ export default function SignUpPage() {
               />
             </div>
 
-            <div>
-              <Label htmlFor="phone">Telefone (WhatsApp)</Label>
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="+55 11 99999-9999"
-              />
-            </div>
+            <InternationalPhoneInput
+              value={formData.phone}
+              onChange={(value) => setFormData({ ...formData, phone: value })}
+              label="Telefone/WhatsApp (recomendado)"
+            />
 
             <div>
               <Label htmlFor="tenantType">Tipo de Organização</Label>
