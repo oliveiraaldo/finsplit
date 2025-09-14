@@ -909,8 +909,10 @@ async function handleReceiptConfirmation(from: string, user: any, confirm: boole
       // Buscar último recibo em processo deste usuário
       const lastReceipt = await prisma.expense.findFirst({
         where: {
-          tenantId: user.tenantId,
-          status: 'PENDING' // Assumindo que tem esse status para recibos em análise
+          group: {
+            tenantId: user.tenantId
+          },
+          status: 'PENDING'
         },
         orderBy: { createdAt: 'desc' }
       })
@@ -919,7 +921,7 @@ async function handleReceiptConfirmation(from: string, user: any, confirm: boole
         // Confirmar recibo
         await prisma.expense.update({
           where: { id: lastReceipt.id },
-          data: { status: 'CONFIRMED' }
+          data: { status: 'COMPLETED' }
         })
 
         await sendWhatsAppMessage(from, `✅ Despesa lançada com sucesso!
