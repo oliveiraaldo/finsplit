@@ -118,14 +118,22 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-white flex items-center justify-center px-4 py-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Criar Conta FinSplit</CardTitle>
-          <CardDescription>
-            {planParam === 'premium' ? 'Plano Premium selecionado' : 'Comece gratuitamente'}
-          </CardDescription>
-        </CardHeader>
+    <div className="min-h-screen flex flex-col">
+      <SiteHeader />
+      
+      <main className="flex-1 bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <Card className="shadow-xl border-0">
+            <CardHeader className="space-y-1 pb-6">
+              <div className="text-center mb-4">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Criar Conta no FinSplit
+                </h1>
+                <p className="text-gray-600 mt-2">
+                  Comece a organizar suas despesas agora
+                </p>
+              </div>
+            </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
