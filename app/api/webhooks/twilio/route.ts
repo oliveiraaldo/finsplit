@@ -2020,6 +2020,11 @@ async function handleFinalConfirmation(from: string, text: string, user: any, us
       // Salvar despesa
       console.log('💾 Salvando despesa no banco...')
       
+      // Determinar tipos de mídia e documento
+      const contentType = await getMediaContentType(userState.mediaUrl)
+      const isImage = contentType?.startsWith('image/')
+      const isPdf = contentType?.includes('pdf')
+      
       // Criar despesa no banco
       const expense = await prisma.expense.create({
         data: {
@@ -2031,6 +2036,8 @@ async function handleFinalConfirmation(from: string, text: string, user: any, us
           receiptData: userState.originalData,
           aiExtracted: true,
           aiConfidence: userState.confidence,
+          mediaType: contentType || 'application/octet-stream',
+          documentType: isImage ? 'recibo' : isPdf ? 'nota_fiscal' : 'comprovante',
           paidBy: {
             connect: { id: user.id }
           },
