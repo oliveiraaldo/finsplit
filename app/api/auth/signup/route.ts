@@ -292,6 +292,8 @@ async function sendWelcomeMessage(userName: string, phone: string) {
 
 Aqui você pode organizar suas finanças de forma simples e prática.
 
+*Tire uma foto de sua nota fiscal ou recibo e deixe a IA fazer o restante!!!!*
+
 👉 Alguns exemplos do que você já pode fazer:
 
 • Criar grupos para família, viagens, empresa ou amigos
