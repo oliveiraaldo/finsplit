@@ -29,7 +29,11 @@ interface Tenant {
   name: string
   type: 'BUSINESS' | 'FAMILY' | 'PERSONAL'
   plan: 'FREE' | 'PREMIUM'
+  planId?: string
+  planName?: string
+  planPrice?: number
   customPlan?: {
+    id: string
     name: string
     price: number
   }
