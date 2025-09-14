@@ -17,8 +17,10 @@ export async function GET(request: NextRequest) {
         name: true,
         type: true,
         plan: true,
+        planId: true,
         customPlan: {
           select: {
+            id: true,
             name: true,
             price: true
           }
@@ -41,7 +43,14 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json(tenants)
+    // Transformar dados para incluir nome do plano
+    const tenantsWithPlanNames = tenants.map(tenant => ({
+      ...tenant,
+      planName: tenant.customPlan ? tenant.customPlan.name : (tenant.plan === 'FREE' ? 'Plano Gratuito' : 'Plano Premium'),
+      planPrice: tenant.customPlan ? tenant.customPlan.price : (tenant.plan === 'FREE' ? 0 : 29.90)
+    }))
+
+    return NextResponse.json(tenantsWithPlanNames)
 
   } catch (error) {
     console.error('Erro ao buscar tenants:', error)

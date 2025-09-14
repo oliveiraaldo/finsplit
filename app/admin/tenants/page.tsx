@@ -143,12 +143,17 @@ export default function AdminTenants() {
       const foundPlan = plans.find(p => p.name === tenant.customPlan!.name)
       planId = foundPlan?.id || ''
     } else {
-      // Buscar plano baseado no tipo (FREE/PREMIUM)
-      const foundPlan = plans.find(p => 
-        (tenant.plan === 'FREE' && p.price === 0) || 
-        (tenant.plan === 'PREMIUM' && p.price > 0)
-      )
-      planId = foundPlan?.id || ''
+      // Buscar plano - primeiro tenta pelo planId, senão pela lógica antiga
+      if (tenant.planId) {
+        planId = tenant.planId
+      } else {
+        // Fallback para lógica antiga baseada no tipo (FREE/PREMIUM)
+        const foundPlan = plans.find(p => 
+          (tenant.plan === 'FREE' && p.price === 0) || 
+          (tenant.plan === 'PREMIUM' && p.price > 0)
+        )
+        planId = foundPlan?.id || ''
+      }
     }
     
     setFormData({
@@ -339,7 +344,14 @@ export default function AdminTenants() {
                       ) : (
                         <CreditCard className="h-4 w-4 text-gray-400 mr-1" />
                       )}
-                      <span className="text-sm text-gray-600">{tenant.plan}</span>
+                      <span className="text-sm text-gray-600">
+                        {tenant.planName || tenant.plan}
+                        {tenant.planPrice && tenant.planPrice > 0 && (
+                          <span className="ml-1 text-xs text-gray-500">
+                            - R$ {tenant.planPrice.toFixed(2)}/mês
+                          </span>
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
