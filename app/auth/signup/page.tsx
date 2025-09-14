@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectItem } from '@/components/ui/select'
-import { PhoneInput } from '@/components/ui/phone-input'
+import { InternationalPhoneInput } from '@/components/ui/international-phone-input'
 import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
 import { toast } from 'sonner'

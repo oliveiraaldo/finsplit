@@ -36,10 +36,10 @@ export async function POST(request: NextRequest) {
 
     // Validar e verificar telefone
     if (phone) {
-      // Validar formato do telefone brasileiro
-      if (!validateBrazilianPhone(phone)) {
+      // Validar formato do telefone internacional
+      if (!validateInternationalPhone(phone)) {
         return NextResponse.json(
-          { message: 'Formato de telefone inválido. Use o formato brasileiro com DDD.' },
+          { message: 'Formato de telefone inválido. Verifique o código do país e número.' },
           { status: 400 }
         )
       }
@@ -234,33 +234,46 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Função para validar telefone brasileiro
-function validateBrazilianPhone(phone: string): boolean {
+// Função para validar telefone internacional
+function validateInternationalPhone(phone: string): boolean {
   // Remove todos os caracteres não numéricos
   const numbers = phone.replace(/\D/g, '')
   
-  // Deve começar com 55 (código do Brasil)
-  if (!numbers.startsWith('55')) {
+  // Lista de códigos de países suportados
+  const supportedCountries = [
+    { code: '+55', minLength: 12, maxLength: 13 }, // Brasil
+    { code: '+1', minLength: 11, maxLength: 11 },   // EUA/Canadá
+    { code: '+52', minLength: 12, maxLength: 13 },  // México
+    { code: '+54', minLength: 12, maxLength: 13 },  // Argentina
+    { code: '+56', minLength: 11, maxLength: 12 },  // Chile
+    { code: '+57', minLength: 12, maxLength: 13 },  // Colômbia
+    { code: '+51', minLength: 11, maxLength: 12 },  // Peru
+    { code: '+598', minLength: 11, maxLength: 12 }, // Uruguai
+    { code: '+595', minLength: 12, maxLength: 13 }, // Paraguai
+    { code: '+351', minLength: 12, maxLength: 13 }, // Portugal
+    { code: '+34', minLength: 11, maxLength: 12 }   // Espanha
+  ]
+  
+  // Verificar se o número começa com um código de país suportado
+  const country = supportedCountries.find(c => numbers.startsWith(c.code.replace('+', '')))
+  if (!country) {
     return false
   }
   
-  // Remove o código do país para validar o número brasileiro
-  const brazilianNumber = numbers.substring(2)
-  
-  // Deve ter 10 ou 11 dígitos (DDD + número)
-  if (brazilianNumber.length !== 10 && brazilianNumber.length !== 11) {
+  // Verificar comprimento
+  if (numbers.length < country.minLength || numbers.length > country.maxLength) {
     return false
   }
   
-  // DDD deve estar entre 11 e 99
-  const ddd = parseInt(brazilianNumber.substring(0, 2))
-  if (ddd < 11 || ddd > 99) {
-    return false
-  }
-  
-  // Se for celular (11 dígitos), deve começar com 9
-  if (brazilianNumber.length === 11 && brazilianNumber[2] !== '9') {
-    return false
+  // Validação específica para Brasil
+  if (numbers.startsWith('55')) {
+    const brazilianNumber = numbers.substring(2)
+    if (brazilianNumber.length < 10 || brazilianNumber.length > 11) return false
+    
+    const ddd = parseInt(brazilianNumber.substring(0, 2))
+    if (ddd < 11 || ddd > 99) return false
+    
+    if (brazilianNumber.length === 11 && brazilianNumber[2] !== '9') return false
   }
   
   return true
