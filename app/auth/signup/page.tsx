@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectItem } from '@/components/ui/select'
+import { SiteHeader } from '@/components/layout/site-header'
+import { SiteFooter } from '@/components/layout/site-footer'
 import { toast } from 'sonner'
 
 interface Plan {
@@ -281,8 +283,12 @@ export default function SignUpPage() {
               </Link>
             </p>
           </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+
+      <SiteFooter />
     </div>
   )
 } 
