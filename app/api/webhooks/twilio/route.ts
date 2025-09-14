@@ -964,8 +964,8 @@ async function handleHelpCommand(from: string, user: any) {
 • Digite *saldo* - veja seus débitos e créditos  
 • Digite *grupos* - gerencie seus grupos
 • Digite *lançamento* - registre despesa manual
-🔹 Digite *relatório* → resumo das suas finanças
-🔹 Digite *planos* → veja recursos disponíveis
+• Digite *relatório* - resumo das suas finanças
+• Digite *planos* - veja recursos disponíveis
 
 ✅ *Para confirmar despesas:* "sim" ou "confirmar"
 ❌ *Para rejeitar:* "não" ou "rejeitar"
