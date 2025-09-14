@@ -221,6 +221,8 @@ export async function POST(request: NextRequest) {
 // Função para enviar mensagem de boas-vindas no WhatsApp
 async function sendWelcomeMessage(userName: string, phone: string) {
   try {
+    const { twilioClient } = await import('@/lib/twilio')
+    
     // Formatar número de telefone para WhatsApp
     const formattedPhone = phone.startsWith('+') ? `whatsapp:${phone}` : `whatsapp:+${phone}`
     const formattedFrom = `whatsapp:${process.env.TWILIO_PHONE_NUMBER}`
