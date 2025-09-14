@@ -24,7 +24,12 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            plan: true
+            plan: true,
+            customPlan: {
+              select: {
+                name: true
+              }
+            }
           }
         }
       },
@@ -124,7 +129,12 @@ export async function POST(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            plan: true
+            plan: true,
+            customPlan: {
+              select: {
+                name: true
+              }
+            }
           }
         }
       }

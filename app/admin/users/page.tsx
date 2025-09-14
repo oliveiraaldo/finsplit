@@ -34,6 +34,9 @@ interface User {
     id: string
     name: string
     plan: string
+    customPlan?: {
+      name: string
+    }
   }
 }
 
@@ -286,7 +289,9 @@ export default function AdminUsers() {
                         <Building2 className="h-4 w-4 text-gray-400 mr-2" />
                         <div>
                           <div className="text-sm font-medium text-gray-900">{user.tenant.name}</div>
-                          <div className="text-sm text-gray-500">{user.tenant.plan}</div>
+                          <div className="text-sm text-gray-500">
+                            {user.tenant.customPlan?.name || user.tenant.plan}
+                          </div>
                         </div>
                       </div>
                     </td>
