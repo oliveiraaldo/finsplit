@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 const colorPalette = [
   // Vermelhos
@@ -56,85 +55,89 @@ interface ColorPickerProps {
 
 export function ColorPicker({ selectedColor, onColorSelect, className }: ColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Fechar dropdown quando clicar fora
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isOpen])
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={`w-full h-10 p-2 ${className}`}
-          style={{ backgroundColor: selectedColor }}
-        >
-          <div className="flex items-center justify-between w-full">
-            <div 
-              className="w-6 h-6 rounded border border-gray-300 flex-shrink-0"
-              style={{ backgroundColor: selectedColor }}
-            />
-            <span className="text-sm font-medium text-gray-700 ml-2">
-              {selectedColor.toUpperCase()}
-            </span>
-          </div>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-4" align="start">
-        <div className="space-y-4">
-          <div>
-            <h4 className="font-medium text-sm mb-3">Selecione uma cor:</h4>
-            <div className="grid grid-cols-8 gap-2">
-              {colorPalette.map((color) => (
-                <button
-                  key={color}
-                  onClick={() => {
-                    onColorSelect(color)
-                    setIsOpen(false)
-                  }}
-                  className={`w-8 h-8 rounded-md border-2 transition-all hover:scale-110 ${
-                    selectedColor === color 
-                      ? 'border-gray-900 ring-2 ring-blue-500' 
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                  style={{ backgroundColor: color }}
-                  title={color}
-                />
-              ))}
+    <div className="relative" ref={dropdownRef}>
+      <Button
+        variant="outline"
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full h-10 p-2 ${className}`}
+      >
+        <div className="flex items-center justify-between w-full">
+          <div 
+            className="w-6 h-6 rounded border border-gray-300 flex-shrink-0"
+            style={{ backgroundColor: selectedColor }}
+          />
+          <span className="text-sm font-medium text-gray-700 ml-2">
+            {selectedColor.toUpperCase()}
+          </span>
+          <svg className="w-4 h-4 text-gray-500 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </Button>
+
+      {isOpen && (
+        <div className="absolute z-50 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-4">
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-medium text-sm mb-3">Selecione uma cor:</h4>
+              <div className="grid grid-cols-8 gap-2 max-h-40 overflow-y-auto">
+                {colorPalette.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => {
+                      onColorSelect(color)
+                      setIsOpen(false)
+                    }}
+                    className={`w-8 h-8 rounded-md border-2 transition-all hover:scale-110 ${
+                      selectedColor === color 
+                        ? 'border-gray-900 ring-2 ring-blue-500' 
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="font-medium text-sm mb-2">Ou digite uma cor personalizada:</h4>
+              <input
+                type="color"
+                value={selectedColor}
+                onChange={(e) => {
+                  onColorSelect(e.target.value)
+                  setIsOpen(false)
+                }}
+                className="w-full h-10 rounded border border-gray-300 cursor-pointer"
+              />
             </div>
           </div>
-          
-          <div>
-            <h4 className="font-medium text-sm mb-2">Ou digite uma cor personalizada:</h4>
-            <input
-              type="color"
-              value={selectedColor}
-              onChange={(e) => onColorSelect(e.target.value)}
-              className="w-full h-10 rounded border border-gray-300 cursor-pointer"
-            />
-          </div>
         </div>
-      </PopoverContent>
-    </Popover>
+      )}
+    </div>
   )
 }
 
-// Popover components (caso não existam ainda)
-const PopoverRoot = ({ children, open, onOpenChange }: any) => (
-  <div className="relative inline-block">
-    {children}
-  </div>
-)
-
-const PopoverTriggerComponent = ({ children, asChild, ...props }: any) => 
-  asChild ? children : <div {...props}>{children}</div>
-
-const PopoverContentComponent = ({ children, className, align, ...props }: any) => (
-  <div 
-    className={`absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg ${className}`}
-    {...props}
-  >
-    {children}
-  </div>
-)
-
-// Exportar componentes caso não existam
-export const Popover = PopoverRoot
-export const PopoverTrigger = PopoverTriggerComponent  
-export const PopoverContent = PopoverContentComponent
