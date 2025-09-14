@@ -921,7 +921,7 @@ async function handleReceiptConfirmation(from: string, user: any, confirm: boole
         // Confirmar recibo
         await prisma.expense.update({
           where: { id: lastReceipt.id },
-          data: { status: 'COMPLETED' }
+          data: { status: 'CONFIRMED' }
         })
 
         await sendWhatsAppMessage(from, `✅ Despesa lançada com sucesso!
