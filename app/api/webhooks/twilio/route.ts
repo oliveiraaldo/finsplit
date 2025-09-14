@@ -1346,10 +1346,7 @@ async function handleGroupSelection(from: string, text: string, user: any, userS
       })
 
       // Usar o novo fluxo de confirmação final ao invés do antigo
-      return await showFinalConfirmation(from, user, {
-        ...userState,
-        selectedGroupId: newGroup.id
-      })
+      return await showFinalConfirmation(from, user, userState, newGroup.id)
       
     } else if (selection > 0 && selection <= userState.userGroups.length) {
       // Selecionar grupo existente do usuário
@@ -1357,10 +1354,7 @@ async function handleGroupSelection(from: string, text: string, user: any, userS
       
       
       // Usar o novo fluxo de confirmação final ao invés do antigo
-      return await showFinalConfirmation(from, user, {
-        ...userState,
-        selectedGroupId: selectedGroup.id
-      })
+      return await showFinalConfirmation(from, user, userState, selectedGroup.id)
       
     } else {
       await sendWhatsAppMessage(from, `❌ Número inválido. Digite um número entre 1 e ${userState.userGroups.length}, ou "0" para novo grupo.`)
