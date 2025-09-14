@@ -482,21 +482,42 @@ async function handleTextMessage(from: string, body: string, user: any) {
     }
 
   } else if (text === 'ajuda' || text === 'help' || text === 'menu') {
-    const helpMessage = `🤖 FinSplit WhatsApp Bot\n\n` +
-      `📸 Envie uma foto do recibo para registrar uma despesa\n` +
-      `✅ Responda "sim" para confirmar despesas\n` +
-      `❌ Responda "não" para rejeitar despesas\n` +
-      `📊 Digite "planilha" para ver o link da planilha\n` +
-      `❓ Digite "ajuda" para ver este menu`
+    return await handleHelpCommand(from, user)
 
-    await sendWhatsAppMessage(from, helpMessage)
+  } else if (text === 'saldo' || text.includes('saldo')) {
+    return await handleBalanceCommand(from, user)
+
+  } else if (text === 'grupos' || text.includes('grupos') || text.includes('grupo')) {
+    return await handleGroupsCommand(from, user)
+
+  } else if (text === 'lançamento' || text === 'lancamento' || text.includes('despesa')) {
+    return await handleExpenseCommand(from, user)
+
+  } else if (text === 'relatório' || text === 'relatorio' || text.includes('relatório')) {
+    return await handleReportCommand(from, user)
+
+  } else if (text === 'planos' || text.includes('plano')) {
+    return await handlePlansCommand(from, user)
 
   } else if (text === 'planilha' || text === 'dashboard') {
     const dashboardUrl = `${process.env.NEXTAUTH_URL}/dashboard`
     await sendWhatsAppMessage(from, `📊 Acesse seu dashboard: ${dashboardUrl}`)
 
   } else {
-    await sendWhatsAppMessage(from, 'Não entendi. Digite "ajuda" para ver as opções disponíveis.')
+    // Mensagem mais humana para comando não reconhecido
+    const helpMessage = `🤔 Não entendi sua mensagem.
+
+Mas olha só o que você pode pedir aqui no WhatsApp:
+
+1️⃣ *saldo* → ver seu saldo e débitos
+2️⃣ *grupos* → listar ou criar grupos novos  
+3️⃣ *lançamento* → registrar uma despesa manualmente
+4️⃣ *relatório* → gerar resumo das suas despesas
+5️⃣ *planos* → conhecer recursos e vantagens extras
+
+Ou simplesmente envie um recibo e eu organizo os dados pra você ✨`
+
+    await sendWhatsAppMessage(from, helpMessage)
   }
 
   return NextResponse.json({ message: 'Mensagem processada' })
@@ -727,6 +748,284 @@ async function sendWhatsAppMessage(to: string, body: string) {
     console.error('  Código:', error.code)
   }
 }
+
+// ===== COMANDOS DO WHATSAPP =====
+
+async function handleHelpCommand(from: string, user: any) {
+  const helpMessage = `🤖 *Menu de Comandos do FinSplit*
+
+📱 *O que você pode fazer aqui:*
+
+🔹 Envie um *recibo* (foto) → IA organiza automaticamente
+🔹 Digite *saldo* → veja seus débitos e créditos  
+🔹 Digite *grupos* → gerencie seus grupos
+🔹 Digite *lançamento* → registre despesa manual
+🔹 Digite *relatório* → resumo das suas finanças
+🔹 Digite *planos* → veja recursos disponíveis
+
+✅ *Para confirmar despesas:* "sim" ou "confirmar"
+❌ *Para rejeitar:* "não" ou "rejeitar"
+
+💡 *Dica:* Apenas envie a foto do recibo que eu cuido do resto!`
+
+  await sendWhatsAppMessage(from, helpMessage)
+  return NextResponse.json({ message: 'Help command processed' })
+}
+
+async function handleBalanceCommand(from: string, user: any) {
+  try {
+    // Buscar grupos do usuário
+    const userGroups = await prisma.groupMember.findMany({
+      where: { userId: user.id },
+      include: {
+        group: {
+          include: {
+            expenses: {
+              include: {
+                payments: true
+              }
+            }
+          }
+        }
+      }
+    })
+
+    if (userGroups.length === 0) {
+      await sendWhatsAppMessage(from, `💰 *Seu Saldo*
+
+Você ainda não participa de nenhum grupo.
+
+Digite *grupos* para criar ou entrar em um grupo! 📝`)
+      return NextResponse.json({ message: 'Balance command - no groups' })
+    }
+
+    let totalOwed = 0
+    let totalToPay = 0
+    let balanceDetails = `💰 *Seu Saldo Geral*\n\n`
+
+    userGroups.forEach(userGroup => {
+      const group = userGroup.group
+      let groupBalance = 0
+      
+      group.expenses.forEach(expense => {
+        if (expense.paidById === user.id) {
+          // Usuário pagou - deve receber
+          const unpaidAmount = expense.payments
+            .filter(p => p.status === 'PENDING')
+            .reduce((sum, p) => sum + Number(p.amount), 0)
+          groupBalance += unpaidAmount
+        } else {
+          // Usuário deve pagar
+          const userPayment = expense.payments.find(p => p.userId === user.id)
+          if (userPayment && userPayment.status === 'PENDING') {
+            groupBalance -= Number(userPayment.amount)
+          }
+        }
+      })
+
+      if (groupBalance > 0) {
+        totalOwed += groupBalance
+        balanceDetails += `🟢 *${group.name}*: +R$ ${groupBalance.toFixed(2)}\n`
+      } else if (groupBalance < 0) {
+        totalToPay += Math.abs(groupBalance)
+        balanceDetails += `🔴 *${group.name}*: -R$ ${Math.abs(groupBalance).toFixed(2)}\n`
+      } else {
+        balanceDetails += `⚪ *${group.name}*: Quitado\n`
+      }
+    })
+
+    const netBalance = totalOwed - totalToPay
+    balanceDetails += `\n📊 *Resumo:*\n`
+    balanceDetails += `💚 A receber: R$ ${totalOwed.toFixed(2)}\n`
+    balanceDetails += `❤️ A pagar: R$ ${totalToPay.toFixed(2)}\n`
+    balanceDetails += `💰 Saldo líquido: ${netBalance >= 0 ? '+' : ''}R$ ${netBalance.toFixed(2)}`
+
+    await sendWhatsAppMessage(from, balanceDetails)
+    return NextResponse.json({ message: 'Balance command processed' })
+
+  } catch (error) {
+    console.error('Erro no comando saldo:', error)
+    await sendWhatsAppMessage(from, '❌ Erro ao buscar seu saldo. Tente novamente.')
+    return NextResponse.json({ message: 'Balance command error' })
+  }
+}
+
+async function handleGroupsCommand(from: string, user: any) {
+  try {
+    // Buscar grupos do usuário
+    const userGroups = await prisma.groupMember.findMany({
+      where: { userId: user.id },
+      include: {
+        group: {
+          include: {
+            _count: {
+              select: {
+                members: true,
+                expenses: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        joinedAt: 'desc'
+      }
+    })
+
+    if (userGroups.length === 0) {
+      const message = `👥 *Seus Grupos*
+
+Você ainda não participa de nenhum grupo.
+
+🔗 *Para criar um grupo:*
+Acesse: ${process.env.NEXTAUTH_URL}/dashboard/groups
+
+Ou peça para alguém te adicionar em um grupo existente! 😊`
+
+      await sendWhatsAppMessage(from, message)
+      return NextResponse.json({ message: 'Groups command - no groups' })
+    }
+
+    let groupsMessage = `👥 *Seus Grupos* (${userGroups.length})\n\n`
+
+    userGroups.forEach((userGroup, index) => {
+      const group = userGroup.group
+      const memberRole = userGroup.role === 'OWNER' ? '👑' : '👤'
+      
+      groupsMessage += `${index + 1}️⃣ ${memberRole} *${group.name}*\n`
+      groupsMessage += `   • ${group._count.members} membros\n`
+      groupsMessage += `   • ${group._count.expenses} despesas\n\n`
+    })
+
+    groupsMessage += `🔗 *Gerenciar grupos:*\n${process.env.NEXTAUTH_URL}/dashboard/groups`
+
+    await sendWhatsAppMessage(from, groupsMessage)
+    return NextResponse.json({ message: 'Groups command processed' })
+
+  } catch (error) {
+    console.error('Erro no comando grupos:', error)
+    await sendWhatsAppMessage(from, '❌ Erro ao buscar seus grupos. Tente novamente.')
+    return NextResponse.json({ message: 'Groups command error' })
+  }
+}
+
+async function handleExpenseCommand(from: string, user: any) {
+  const message = `💸 *Registrar Despesa*
+
+Para registrar uma despesa você pode:
+
+📸 *Método 1 - Automático:*
+Envie uma foto do recibo que a IA extrai os dados automaticamente!
+
+✏️ *Método 2 - Manual:*
+Acesse: ${process.env.NEXTAUTH_URL}/dashboard/expenses/new
+
+🎯 *Dica:* O método automático é muito mais rápido - apenas tire a foto e envie! 📱`
+
+  await sendWhatsAppMessage(from, message)
+  return NextResponse.json({ message: 'Expense command processed' })
+}
+
+async function handleReportCommand(from: string, user: any) {
+  try {
+    // Buscar estatísticas básicas do usuário
+    const thisMonth = new Date()
+    thisMonth.setDate(1)
+    thisMonth.setHours(0, 0, 0, 0)
+
+    const expenses = await prisma.expense.findMany({
+      where: {
+        paidById: user.id,
+        date: {
+          gte: thisMonth
+        },
+        status: 'CONFIRMED'
+      },
+      include: {
+        group: true,
+        category: true
+      }
+    })
+
+    const totalExpenses = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0)
+    const groupCounts = expenses.reduce((acc, exp) => {
+      acc[exp.group.name] = (acc[exp.group.name] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    const topGroup = Object.entries(groupCounts).sort((a, b) => b[1] - a[1])[0]
+
+    let reportMessage = `📊 *Relatório Rápido - ${thisMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}*\n\n`
+    reportMessage += `💰 Total gasto: R$ ${totalExpenses.toFixed(2)}\n`
+    reportMessage += `📈 Despesas registradas: ${expenses.length}\n\n`
+
+    if (topGroup) {
+      reportMessage += `🏆 Grupo mais ativo: *${topGroup[0]}* (${topGroup[1]} despesas)\n\n`
+    }
+
+    reportMessage += `📋 *Relatório completo:*\n${process.env.NEXTAUTH_URL}/dashboard/reports`
+
+    await sendWhatsAppMessage(from, reportMessage)
+    return NextResponse.json({ message: 'Report command processed' })
+
+  } catch (error) {
+    console.error('Erro no comando relatório:', error)
+    await sendWhatsAppMessage(from, '❌ Erro ao gerar relatório. Tente novamente.')
+    return NextResponse.json({ message: 'Report command error' })
+  }
+}
+
+async function handlePlansCommand(from: string, user: any) {
+  try {
+    // Buscar plano atual do usuário e planos disponíveis
+    const currentTenant = await prisma.tenant.findUnique({
+      where: { id: user.tenantId },
+      include: {
+        customPlan: true
+      }
+    })
+
+    const plans = await prisma.plan.findMany({
+      where: { isActive: true },
+      orderBy: { price: 'asc' }
+    })
+
+    let plansMessage = `💎 *Planos FinSplit*\n\n`
+    
+    const currentPlanName = currentTenant?.customPlan 
+      ? currentTenant.customPlan.name 
+      : (currentTenant?.plan === 'FREE' ? 'Plano Gratuito' : 'Plano Premium')
+
+    plansMessage += `🎯 *Seu plano atual:* ${currentPlanName}\n`
+    plansMessage += `💳 Créditos: ${currentTenant?.credits || 0}\n`
+    plansMessage += `📱 WhatsApp: ${currentTenant?.hasWhatsApp ? '✅' : '❌'}\n\n`
+
+    plansMessage += `📋 *Planos disponíveis:*\n\n`
+
+    plans.forEach(plan => {
+      const price = plan.price === 0 ? 'Grátis' : `R$ ${plan.price.toFixed(2)}/mês`
+      plansMessage += `🔹 *${plan.name}* - ${price}\n`
+      if (plan.description) {
+        plansMessage += `   ${plan.description}\n`
+      }
+      plansMessage += `   • ${plan.creditsIncluded} créditos\n`
+      plansMessage += `   • ${plan.maxGroups} grupos\n`
+      plansMessage += `   • WhatsApp: ${plan.hasWhatsApp ? '✅' : '❌'}\n\n`
+    })
+
+    plansMessage += `🛒 *Alterar plano:*\nEntre em contato com o suporte`
+
+    await sendWhatsAppMessage(from, plansMessage)
+    return NextResponse.json({ message: 'Plans command processed' })
+
+  } catch (error) {
+    console.error('Erro no comando planos:', error)
+    await sendWhatsAppMessage(from, '❌ Erro ao buscar planos. Tente novamente.')
+    return NextResponse.json({ message: 'Plans command error' })
+  }
+}
+
+// ===== FUNÇÕES DE UTILIDADE =====
 
 // Função para criar ou obter grupo padrão
 // Função para verificar duplicatas

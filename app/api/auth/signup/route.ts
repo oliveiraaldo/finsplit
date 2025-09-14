@@ -188,6 +188,17 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Enviar mensagem de boas-vindas pelo WhatsApp se houver telefone
+    if (phone && phone.trim()) {
+      try {
+        await sendWelcomeMessage(result.user.name, phone)
+        console.log('📱 Mensagem de boas-vindas enviada por WhatsApp')
+      } catch (error) {
+        console.error('❌ Erro ao enviar mensagem de boas-vindas:', error)
+        // Não falhar o cadastro por causa do WhatsApp
+      }
+    }
+
     return NextResponse.json({
       message: 'Usuário criado com sucesso',
       user: {
@@ -204,5 +215,39 @@ export async function POST(request: NextRequest) {
       { message: 'Erro interno do servidor' },
       { status: 500 }
     )
+  }
+}
+
+// Função para enviar mensagem de boas-vindas no WhatsApp
+async function sendWelcomeMessage(userName: string, phone: string) {
+  try {
+    // Formatar número de telefone para WhatsApp
+    const formattedPhone = phone.startsWith('+') ? `whatsapp:${phone}` : `whatsapp:+${phone}`
+    const formattedFrom = `whatsapp:${process.env.TWILIO_PHONE_NUMBER}`
+
+    const welcomeMessage = `👋 Olá, ${userName}! Seja bem-vindo(a) ao FinSplit 🎉
+
+Aqui você pode organizar suas finanças de forma simples e prática.
+
+👉 Alguns exemplos do que você já pode fazer:
+
+• Criar grupos para família, viagens, empresa ou amigos
+• Enviar recibos/notas fiscais e deixar a IA organizar automaticamente  
+• Acompanhar quem já pagou e quem ainda está devendo
+
+Digite *ajuda* para ver todas as opções ou envie já o seu primeiro recibo 📸`
+
+    console.log('📱 Enviando mensagem de boas-vindas para:', formattedPhone)
+
+    await twilioClient.messages.create({
+      body: welcomeMessage,
+      from: formattedFrom,
+      to: formattedPhone
+    })
+
+    console.log('✅ Mensagem de boas-vindas enviada com sucesso')
+  } catch (error) {
+    console.error('❌ Erro ao enviar mensagem de boas-vindas:', error)
+    throw error
   }
 } 
