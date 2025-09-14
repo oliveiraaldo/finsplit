@@ -284,30 +284,26 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
       return NextResponse.json({ message: 'Despesa duplicada detectada, aguardando confirmação' })
     }
 
-    console.log('💾 Criando despesa no banco...')
+    console.log('💾 Processando dados extraídos da IA...')
     
-    // Criar despesa pendente
-    const expense = await prisma.expense.create({
-      data: {
-        description: extractionResult.data.recebedor?.nome || extractionResult.data.estabelecimento?.nome || extractionResult.data.description || 'Recibo enviado via WhatsApp',
-        amount: extractionResult.data.totais?.total_final || extractionResult.data.amount || 0,
-        date: extractionResult.data.datas?.emissao ? new Date(extractionResult.data.datas.emissao) : new Date(),
-        status: 'PENDING',
-        receiptUrl: mediaUrl,
-        receiptData: extractionResult.data,
-        aiExtracted: true,
-        aiConfidence: extractionResult.confidence,
-        paidBy: {
-          connect: { id: user.id }
-        },
-        group: {
-          connect: { id: (await getOrCreateDefaultGroup(user.tenantId, user.id)).id }
-        },
-        categoryId: undefined
+    // Extrair e normalizar dados
+    const extractedData = {
+      recebedor: extractionResult.data.recebedor?.nome || extractionResult.data.estabelecimento?.nome || 'Não identificado',
+      valor: extractionResult.data.totais?.total_final || extractionResult.data.amount || 0,
+      data: extractionResult.data.datas?.emissao || extractionResult.data.date || new Date().toISOString().split('T')[0],
+      tipo: extractionResult.data.documento?.tipo || extractionResult.data.tipo_transacao || 'Recibo'
+    }
+
+    // Formatação da data para exibição
+    let dataFormatada = 'Não identificada'
+    try {
+      const dataObj = new Date(extractedData.data)
+      if (!isNaN(dataObj.getTime())) {
+        dataFormatada = dataObj.toLocaleDateString('pt-BR')
       }
-    })
-    
-    console.log('✅ Despesa criada com sucesso:', expense.id)
+    } catch (error) {
+      console.log('Erro ao formatar data:', error)
+    }
 
     // Consumir crédito
     await prisma.tenant.update({
@@ -315,63 +311,24 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
       data: { credits: { decrement: 1 } }
     })
 
-    // Log de auditoria
-    await prisma.auditLog.create({
-      data: {
-        action: 'RECEIPT_UPLOAD_WHATSAPP',
-        entity: 'EXPENSE',
-        entityId: expense.id,
-        details: { mediaUrl, messageSid, aiConfidence: extractionResult.confidence },
-        tenantId: user.tenantId,
-        userId: user.id
-      }
-    })
+    // Mostrar resumo para confirmação
+    const message = `✅ Recibo recebido!
 
-    console.log('📋 Buscando grupos do usuário...')
-    
-    // Buscar grupos do usuário para seleção
-    const userGroups = await getUserGroups(user.id, user.tenantId)
-    console.log('📋 Grupos encontrados:', userGroups.length)
-    
-    // Enviar confirmação com seleção de grupo
-    let message = `✅ Recibo recebido!\n\n` +
-      `👤 Recebedor: ${extractionResult.data.recebedor?.nome || extractionResult.data.estabelecimento?.nome || 'Não identificado'}\n` +
-      `💰 Valor: R$ ${extractionResult.data.totais?.total_final || extractionResult.data.amount || 0}\n` +
-      `📅 Data: ${extractionResult.data.datas?.emissao || extractionResult.data.date || 'Não identificada'}\n` +
-      `📄 Tipo: ${extractionResult.data.documento?.tipo || extractionResult.data.tipo_transacao || 'Recibo'}\n\n`
+👤 Recebedor: ${extractedData.recebedor}
+💰 Valor: R$ ${typeof extractedData.valor === 'number' ? extractedData.valor.toFixed(2).replace('.', ',') : extractedData.valor}
+📅 Data: ${dataFormatada}
+📄 Tipo: ${extractedData.tipo}
 
-    // Mostrar grupos do usuário ou explicar conceito se não houver
-    if (userGroups.length > 0) {
-      message += `📋 Selecione o grupo de despesas:\n`
-      userGroups.forEach((group, index) => {
-        message += `${index + 1}. ${group.name}\n`
-      })
-      message += `0. Criar novo grupo\n\n`
-      message += `Responda com o número do grupo ou "0" para novo grupo.`
-    } else {
-      message += `📋 Você ainda não tem grupos cadastrados!\n\n`
-      message += `💡 *O que são grupos?*\n`
-      message += `Grupos são centros de custo para organizar suas despesas:\n\n`
-      message += `🏢 *Empresa* - Despesas profissionais\n`
-      message += `✈️ *Viagem* - Gastos de viagens específicas\n`  
-      message += `🏠 *Casa* - Despesas domésticas\n`
-      message += `👨‍👩‍👧‍👦 *Família* - Gastos familiares\n`
-      message += `🎉 *Eventos* - Festa, casamento, aniversário\n\n`
-      message += `Digite *"criar grupo"* para cadastrar seu primeiro grupo.`
-    }
+Estes dados estão corretos?
+1 Confirmar · 2 Corrigir`
     
-    // Definir estado do usuário para aguardar seleção de grupo ou criação
+    // Definir estado do usuário para aguardar confirmação
     await setUserState(user.id, { 
-      action: userGroups.length > 0 ? 'SELECTING_GROUP' : 'NEEDS_GROUP_CREATION', 
-      userGroups: userGroups,
-      pendingExpenseId: expense.id, // Salvar ID da despesa criada como PENDING
-      pendingExpenseData: {
-        description: extractionResult.data.recebedor?.nome || extractionResult.data.estabelecimento?.nome,
-        amount: extractionResult.data.totais?.total_final || extractionResult.data.amount,
-        date: extractionResult.data.datas?.emissao ? new Date(extractionResult.data.datas.emissao) : new Date(),
-        receiptData: extractionResult.data,
-        mediaUrl: mediaUrl
-      }
+      action: 'RECEIPT_CONFIRMATION',
+      extractedData: extractedData,
+      originalData: extractionResult.data,
+      mediaUrl: mediaUrl,
+      confidence: extractionResult.confidence
     })
 
         console.log('📤 Enviando mensagem final...')
@@ -399,8 +356,40 @@ async function handleTextMessage(from: string, body: string, user: any) {
   const userState = await getUserState(user.id)
   console.log('🔍 Estado atual do usuário:', userState)
   
-  if (userState && userState.action === 'SELECTING_GROUP') {
+  // Novo fluxo de confirmação de recibo
+  if (userState && userState.action === 'RECEIPT_CONFIRMATION') {
+    console.log('✅ Usuário confirmando/corrigindo recibo...')
+    return await handleReceiptConfirmationChoice(from, text, user, userState)
+  }
+
+  if (userState && userState.action === 'RECEIPT_EDITING') {
+    console.log('✏️ Usuário escolhendo o que corrigir...')
+    return await handleReceiptEditingMenu(from, text, user, userState)
+  }
+
+  if (userState && userState.action === 'RECEIPT_EDITING_FIELD') {
+    console.log('📝 Usuário editando campo...')
+    return await handleReceiptFieldEdit(from, text, user, userState)
+  }
+
+  if (userState && userState.action === 'GROUP_SELECTION') {
     console.log('📋 Usuário selecionando grupo...')
+    return await handleGroupSelection(from, text, user, userState)
+  }
+
+  if (userState && userState.action === 'GROUP_CREATION') {
+    console.log('🏗️ Usuário criando novo grupo...')
+    return await handleNewGroupCreation(from, text, user, userState)
+  }
+
+  if (userState && userState.action === 'FINAL_CONFIRMATION') {
+    console.log('🔎 Usuário na confirmação final...')
+    return await handleFinalConfirmation(from, text, user, userState)
+  }
+
+  // Estados legados (manter compatibilidade)
+  if (userState && userState.action === 'SELECTING_GROUP') {
+    console.log('📋 Usuário selecionando grupo (modo legado)...')
     return await handleGroupSelection(from, text, user, userState)
   }
 
@@ -1563,6 +1552,523 @@ Agora você já pode usar esse grupo para organizar suas despesas.
       { message: 'Erro interno do servidor' },
       { status: 500 }
     )
+  }
+}
+
+// ===== NOVO FLUXO DE CONFIRMAÇÃO =====
+
+async function handleReceiptConfirmationChoice(from: string, text: string, user: any, userState: any) {
+  try {
+    const choice = text.trim()
+    
+    if (choice === '1') {
+      // Confirmar dados - prosseguir para seleção de grupo
+      console.log('✅ Dados confirmados pelo usuário')
+      return await showGroupSelection(from, user, userState)
+    } else if (choice === '2') {
+      // Corrigir dados - mostrar menu de correção
+      console.log('✏️ Usuário quer corrigir dados')
+      
+      const message = `O que deseja corrigir?
+1 Recebedor · 2 Valor · 3 Data · 4 Tipo
+0 Cancelar correções`
+      
+      await sendWhatsAppMessage(from, message)
+      
+      // Atualizar estado para menu de edição
+      await setUserState(user.id, { 
+        ...userState,
+        action: 'RECEIPT_EDITING'
+      })
+      
+      return NextResponse.json({ message: 'Menu de correção exibido' })
+    } else {
+      await sendWhatsAppMessage(from, 'Não entendi. Responda com 1 para Confirmar ou 2 para Corrigir.')
+      return NextResponse.json({ message: 'Opção inválida' })
+    }
+  } catch (error) {
+    console.error('❌ Erro ao processar confirmação:', error)
+    return NextResponse.json({ message: 'Erro interno' }, { status: 500 })
+  }
+}
+
+async function handleReceiptEditingMenu(from: string, text: string, user: any, userState: any) {
+  try {
+    const choice = text.trim()
+    
+    switch (choice) {
+      case '1':
+        // Corrigir recebedor
+        await sendWhatsAppMessage(from, 'Informe o novo recebedor (ex.: "Elidy Importação e Exportação Ltda")')
+        await setUserState(user.id, { 
+          ...userState,
+          action: 'RECEIPT_EDITING_FIELD',
+          editingField: 'recebedor'
+        })
+        break
+      case '2':
+        // Corrigir valor
+        await sendWhatsAppMessage(from, 'Informe o novo valor (ex.: 1089.76 ou 1.089,76)')
+        await setUserState(user.id, { 
+          ...userState,
+          action: 'RECEIPT_EDITING_FIELD',
+          editingField: 'valor'
+        })
+        break
+      case '3':
+        // Corrigir data
+        await sendWhatsAppMessage(from, 'Informe a nova data (ex.: 26/10/2022)')
+        await setUserState(user.id, { 
+          ...userState,
+          action: 'RECEIPT_EDITING_FIELD',
+          editingField: 'data'
+        })
+        break
+      case '4':
+        // Corrigir tipo
+        await sendWhatsAppMessage(from, 'Informe o tipo (ex.: recibo, nota fiscal, comprovante)')
+        await setUserState(user.id, { 
+          ...userState,
+          action: 'RECEIPT_EDITING_FIELD',
+          editingField: 'tipo'
+        })
+        break
+      case '0':
+        // Cancelar correções - mostrar resumo novamente
+        await showReceiptSummary(from, userState.extractedData)
+        await setUserState(user.id, { 
+          ...userState,
+          action: 'RECEIPT_CONFIRMATION'
+        })
+        break
+      default:
+        await sendWhatsAppMessage(from, 'Opção inválida. Digite 1, 2, 3, 4 ou 0.')
+        break
+    }
+    
+    return NextResponse.json({ message: 'Menu de edição processado' })
+  } catch (error) {
+    console.error('❌ Erro no menu de edição:', error)
+    return NextResponse.json({ message: 'Erro interno' }, { status: 500 })
+  }
+}
+
+async function handleReceiptFieldEdit(from: string, text: string, user: any, userState: any) {
+  try {
+    const field = userState.editingField
+    const newValue = text.trim()
+    
+    // Validar e atualizar campo específico
+    let isValid = true
+    let errorMessage = ''
+    let updatedValue = newValue
+    
+    switch (field) {
+      case 'valor':
+        const validation = validateValue(newValue)
+        if (!validation.isValid) {
+          isValid = false
+          errorMessage = validation.error
+        } else {
+          updatedValue = validation.value
+        }
+        break
+      case 'data':
+        const dateValidation = validateDate(newValue)
+        if (!dateValidation.isValid) {
+          isValid = false
+          errorMessage = dateValidation.error
+        } else {
+          updatedValue = dateValidation.value
+        }
+        break
+      case 'recebedor':
+        if (newValue.length < 2) {
+          isValid = false
+          errorMessage = 'Nome muito curto. Tente algo como "Empresa ABC Ltda".'
+        }
+        break
+      case 'tipo':
+        // Normalizar tipos comuns
+        const normalizedType = newValue.toLowerCase()
+        if (normalizedType.includes('nota') || normalizedType.includes('fiscal')) {
+          updatedValue = 'nota fiscal'
+        } else if (normalizedType.includes('comprovante')) {
+          updatedValue = 'comprovante'
+        } else if (normalizedType.includes('recibo')) {
+          updatedValue = 'recibo'
+        }
+        break
+    }
+    
+    if (!isValid) {
+      await sendWhatsAppMessage(from, errorMessage)
+      return NextResponse.json({ message: 'Valor inválido' })
+    }
+    
+    // Atualizar dados extraídos
+    const updatedData = { ...userState.extractedData }
+    updatedData[field] = updatedValue
+    
+    // Mostrar resumo atualizado
+    await sendWhatsAppMessage(from, `✅ Atualizei.`)
+    await showReceiptSummary(from, updatedData)
+    
+    // Voltar para confirmação
+    await setUserState(user.id, { 
+      ...userState,
+      extractedData: updatedData,
+      action: 'RECEIPT_CONFIRMATION'
+    })
+    
+    return NextResponse.json({ message: 'Campo atualizado' })
+  } catch (error) {
+    console.error('❌ Erro ao editar campo:', error)
+    return NextResponse.json({ message: 'Erro interno' }, { status: 500 })
+  }
+}
+
+async function showGroupSelection(from: string, user: any, userState: any) {
+  try {
+    console.log('📋 Buscando grupos do usuário...')
+    
+    // Buscar grupos do usuário
+    const userGroups = await getUserGroups(user.id, user.tenantId)
+    console.log('📋 Grupos encontrados:', userGroups.length)
+    
+    if (userGroups.length > 0) {
+      let message = `📋 Em qual grupo deseja lançar esta despesa?\n`
+      userGroups.forEach((group, index) => {
+        message += `${index + 1} ${group.name}\n`
+      })
+      message += `0 Criar novo grupo`
+      
+      await sendWhatsAppMessage(from, message)
+      
+      // Atualizar estado
+      await setUserState(user.id, { 
+        ...userState,
+        action: 'GROUP_SELECTION',
+        userGroups: userGroups
+      })
+    } else {
+      const message = `📋 Você ainda não tem grupos cadastrados!
+
+💡 *O que são grupos?*
+Grupos são centros de custo para organizar suas despesas:
+
+🏢 *Empresa* - Despesas profissionais
+✈️ *Viagem* - Gastos de viagens específicas  
+🏠 *Casa* - Despesas domésticas
+👨‍👩‍👧‍👦 *Família* - Gastos familiares
+🎉 *Eventos* - Festa, casamento, aniversário
+
+✍️ Qual o nome do seu primeiro grupo?
+Ex.: "Obra Casa", "Viagem Família", "Empresa X"
+(digite cancelar para voltar)`
+      
+      await sendWhatsAppMessage(from, message)
+      
+      // Atualizar estado para criação de grupo
+      await setUserState(user.id, { 
+        ...userState,
+        action: 'GROUP_CREATION'
+      })
+    }
+    
+    return NextResponse.json({ message: 'Seleção de grupo exibida' })
+  } catch (error) {
+    console.error('❌ Erro ao mostrar grupos:', error)
+    return NextResponse.json({ message: 'Erro interno' }, { status: 500 })
+  }
+}
+
+async function handleNewGroupCreation(from: string, text: string, user: any, userState: any) {
+  try {
+    const groupName = text.trim()
+    
+    if (groupName.toLowerCase() === 'cancelar') {
+      await showGroupSelection(from, user, userState)
+      return NextResponse.json({ message: 'Criação cancelada' })
+    }
+    
+    if (groupName.length < 2) {
+      await sendWhatsAppMessage(from, 'Nome muito curto. Tente algo como "Obra Casa".')
+      return NextResponse.json({ message: 'Nome muito curto' })
+    }
+    
+    // Criar novo grupo
+    const newGroup = await prisma.group.create({
+      data: {
+        name: groupName,
+        description: 'Grupo criado via WhatsApp',
+        tenantId: user.tenantId,
+        members: {
+          create: {
+            userId: user.id,
+            role: 'ADMIN'
+          }
+        }
+      }
+    })
+    
+    // Ir diretamente para confirmação final com o novo grupo
+    await sendWhatsAppMessage(from, `✅ Grupo "${newGroup.name}" criado.`)
+    
+    return await showFinalConfirmation(from, user, userState, newGroup.id)
+  } catch (error) {
+    console.error('❌ Erro ao criar grupo:', error)
+    await sendWhatsAppMessage(from, '❌ Erro ao criar o grupo. Tente novamente.')
+    return NextResponse.json({ message: 'Erro interno' }, { status: 500 })
+  }
+}
+
+async function showReceiptSummary(from: string, extractedData: any) {
+  // Formatação da data para exibição
+  let dataFormatada = 'Não identificada'
+  try {
+    const dataObj = new Date(extractedData.data)
+    if (!isNaN(dataObj.getTime())) {
+      dataFormatada = dataObj.toLocaleDateString('pt-BR')
+    }
+  } catch (error) {
+    console.log('Erro ao formatar data:', error)
+  }
+
+  const message = `👤 Recebedor: ${extractedData.recebedor}
+💰 Valor: R$ ${typeof extractedData.valor === 'number' ? extractedData.valor.toFixed(2).replace('.', ',') : extractedData.valor}
+📅 Data: ${dataFormatada}
+📄 Tipo: ${extractedData.tipo}
+
+Estes dados estão corretos?
+1 Confirmar · 2 Corrigir`
+  
+  await sendWhatsAppMessage(from, message)
+}
+
+// ===== FUNÇÕES DE VALIDAÇÃO =====
+
+function validateValue(input: string): { isValid: boolean; value?: number; error?: string } {
+  try {
+    // Aceitar formatos: 1089.76, 1.089,76, 1,089.76, etc.
+    const cleaned = input.replace(/[^\d,.-]/g, '')
+    
+    // Converter vírgula decimal para ponto
+    let normalized = cleaned
+    if (cleaned.includes(',') && !cleaned.includes('.')) {
+      // Apenas vírgula = decimal (1089,76)
+      normalized = cleaned.replace(',', '.')
+    } else if (cleaned.includes(',') && cleaned.includes('.')) {
+      // Ambos: último é decimal (1.089,76)
+      const lastComma = cleaned.lastIndexOf(',')
+      const lastDot = cleaned.lastIndexOf('.')
+      if (lastComma > lastDot) {
+        // Vírgula é decimal
+        normalized = cleaned.substring(0, lastComma).replace(/[,.]/g, '') + '.' + cleaned.substring(lastComma + 1)
+      }
+    }
+    
+    const value = parseFloat(normalized)
+    
+    if (isNaN(value) || value <= 0) {
+      return {
+        isValid: false,
+        error: 'Não reconheci esse valor. Tente 1089.76 ou 1.089,76.'
+      }
+    }
+    
+    return { isValid: true, value }
+  } catch (error) {
+    return {
+      isValid: false,
+      error: 'Não reconheci esse valor. Tente 1089.76 ou 1.089,76.'
+    }
+  }
+}
+
+function validateDate(input: string): { isValid: boolean; value?: string; error?: string } {
+  try {
+    const cleaned = input.trim()
+    
+    // Tentar vários formatos
+    const formats = [
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, // DD/MM/AAAA
+      /^(\d{4})-(\d{1,2})-(\d{1,2})$/, // AAAA-MM-DD
+      /^(\d{1,2})-(\d{1,2})-(\d{4})$/, // DD-MM-AAAA
+    ]
+    
+    for (const format of formats) {
+      const match = cleaned.match(format)
+      if (match) {
+        let day, month, year
+        
+        if (format.source.includes('(\\d{4})')) {
+          // AAAA-MM-DD
+          [, year, month, day] = match
+        } else {
+          // DD/MM/AAAA ou DD-MM-AAAA
+          [, day, month, year] = match
+        }
+        
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+        
+        if (!isNaN(date.getTime()) && 
+            date.getFullYear() == parseInt(year) && 
+            date.getMonth() == parseInt(month) - 1 && 
+            date.getDate() == parseInt(day)) {
+          return { 
+            isValid: true, 
+            value: date.toISOString().split('T')[0] 
+          }
+        }
+      }
+    }
+    
+    return {
+      isValid: false,
+      error: 'Data inválida. Exemplo: 26/10/2022.'
+    }
+  } catch (error) {
+    return {
+      isValid: false,
+      error: 'Data inválida. Exemplo: 26/10/2022.'
+    }
+  }
+}
+
+async function showFinalConfirmation(from: string, user: any, userState: any, groupId: string) {
+  try {
+    // Buscar dados do grupo selecionado
+    const group = await prisma.group.findUnique({
+      where: { id: groupId }
+    })
+    
+    if (!group) {
+      await sendWhatsAppMessage(from, '❌ Grupo não encontrado. Tente novamente.')
+      return NextResponse.json({ message: 'Grupo não encontrado' }, { status: 404 })
+    }
+    
+    // Formatação da data
+    let dataFormatada = 'Não identificada'
+    try {
+      const dataObj = new Date(userState.extractedData.data)
+      if (!isNaN(dataObj.getTime())) {
+        dataFormatada = dataObj.toLocaleDateString('pt-BR')
+      }
+    } catch (error) {
+      console.log('Erro ao formatar data:', error)
+    }
+    
+    const message = `🔎 Revise antes de salvar:
+Grupo: ${group.name}
+Recebedor: ${userState.extractedData.recebedor}
+Valor: R$ ${typeof userState.extractedData.valor === 'number' ? userState.extractedData.valor.toFixed(2).replace('.', ',') : userState.extractedData.valor}
+Data: ${dataFormatada}
+Tipo: ${userState.extractedData.tipo}
+
+1 Salvar · 2 Editar`
+    
+    await sendWhatsAppMessage(from, message)
+    
+    // Atualizar estado para confirmação final
+    await setUserState(user.id, { 
+      ...userState,
+      action: 'FINAL_CONFIRMATION',
+      selectedGroupId: groupId,
+      selectedGroupName: group.name
+    })
+    
+    return NextResponse.json({ message: 'Confirmação final exibida' })
+  } catch (error) {
+    console.error('❌ Erro na confirmação final:', error)
+    return NextResponse.json({ message: 'Erro interno' }, { status: 500 })
+  }
+}
+
+async function handleFinalConfirmation(from: string, text: string, user: any, userState: any) {
+  try {
+    const choice = text.trim()
+    
+    if (choice === '1') {
+      // Salvar despesa
+      console.log('💾 Salvando despesa no banco...')
+      
+      // Criar despesa no banco
+      const expense = await prisma.expense.create({
+        data: {
+          description: userState.extractedData.recebedor,
+          amount: userState.extractedData.valor,
+          date: new Date(userState.extractedData.data),
+          status: 'CONFIRMED',
+          receiptUrl: userState.mediaUrl,
+          receiptData: userState.originalData,
+          aiExtracted: true,
+          aiConfidence: userState.confidence,
+          paidBy: {
+            connect: { id: user.id }
+          },
+          group: {
+            connect: { id: userState.selectedGroupId }
+          },
+          categoryId: undefined
+        }
+      })
+      
+      console.log('✅ Despesa criada com sucesso:', expense.id)
+
+      // Log de auditoria
+      await prisma.auditLog.create({
+        data: {
+          action: 'EXPENSE_CREATED_WHATSAPP',
+          entity: 'EXPENSE',
+          entityId: expense.id,
+          details: { 
+            mediaUrl: userState.mediaUrl, 
+            aiConfidence: userState.confidence,
+            groupId: userState.selectedGroupId
+          },
+          tenantId: user.tenantId,
+          userId: user.id
+        }
+      })
+
+      // Link correto para o dashboard
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://finsplit.app'
+      const dashboardUrl = `${baseUrl}/dashboard/groups/${userState.selectedGroupId}`
+      
+      const successMessage = `✅ Despesa lançada no grupo ${userState.selectedGroupName}.
+
+🔗 Abrir no painel:
+${dashboardUrl}
+
+Envie outra foto quando quiser 📸`
+      
+      await sendWhatsAppMessage(from, successMessage)
+      
+      // Limpar estado do usuário
+      await setUserState(user.id, null)
+      
+      return NextResponse.json({ message: 'Despesa salva com sucesso' })
+      
+    } else if (choice === '2') {
+      // Voltar para edição - mostrar resumo novamente
+      await showReceiptSummary(from, userState.extractedData)
+      
+      await setUserState(user.id, { 
+        ...userState,
+        action: 'RECEIPT_CONFIRMATION'
+      })
+      
+      return NextResponse.json({ message: 'Voltando para edição' })
+      
+    } else {
+      await sendWhatsAppMessage(from, 'Não entendi. Responda com 1 para Salvar ou 2 para Editar.')
+      return NextResponse.json({ message: 'Opção inválida' })
+    }
+  } catch (error) {
+    console.error('❌ Erro na confirmação final:', error)
+    await sendWhatsAppMessage(from, '❌ Erro ao salvar despesa. Tente novamente.')
+    return NextResponse.json({ message: 'Erro interno' }, { status: 500 })
   }
 }
 
