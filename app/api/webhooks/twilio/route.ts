@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     console.log('👤 Usuário encontrado:', user ? { id: user.id, name: user.name, phone: user.phone } : 'null')
 
     if (!user) {
-      console.log('❌ Usuário não encontrado, enviando mensagem de erro...')
+      console.log('❌ Usuário não encontrado, enviando mensagem promocional...')
       console.log('🔍 Telefone buscado:', phone)
       console.log('🔍 From original:', from)
       
@@ -67,8 +67,10 @@ export async function POST(request: NextRequest) {
         console.log(`  - ${u.name}: "${u.phone}" (${u.email})`)
       })
       
-      await sendWhatsAppMessage(from, 'Usuário não encontrado. Por favor, cadastre-se no FinSplit primeiro.')
-      return NextResponse.json({ message: 'Usuário não encontrado' })
+      // Gerar mensagem promocional com planos disponíveis
+      const promotionalMessage = await generatePromotionalMessage()
+      await sendWhatsAppMessage(from, promotionalMessage)
+      return NextResponse.json({ message: 'Usuário não encontrado - mensagem promocional enviada' })
     }
 
     // Verificar se o tenant tem WhatsApp habilitado
@@ -632,6 +634,72 @@ async function extractReceiptData(base64Image: string) {
   }
 }
 
+// Função para gerar mensagem promocional dinâmica
+async function generatePromotionalMessage(): Promise<string> {
+  try {
+    // Buscar planos disponíveis do banco de dados
+    const plans = await prisma.plan.findMany({
+      where: { isActive: true },
+      orderBy: { price: 'asc' },
+      select: {
+        name: true,
+        price: true,
+        description: true
+      }
+    })
+
+    // URL de cadastro (ajuste conforme sua URL de produção)
+    const signupUrl = process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/signup` : 'https://finsplit.app/auth/signup'
+
+    let message = `Olá! 👋 Não encontramos seu cadastro no FinSplit.
+
+Para começar a usar o FinSplit é bem simples:
+
+🔗 Clique aqui para se cadastrar agora: ${signupUrl}
+
+🚀 Com o FinSplit você poderá:
+
+✅ Organizar despesas pessoais e da sua família – controle de mercado, contas fixas, viagens, lazer e mais
+✅ Gerenciar as finanças da sua empresa ou equipe – com relatórios, categorias de custos e divisão entre sócios/colaboradores  
+✅ Criar múltiplos grupos de custo – família, viagem com amigos, empresa, eventos, projetos
+✅ Dividir gastos entre usuários – cada pessoa vê quanto deve pagar ou receber
+✅ Relatórios claros e práticos – saiba quem já pagou e acompanhe tudo em tempo real
+✅ Controle simplificado – centralize informações sem precisar de planilhas complicadas
+
+💡 Planos disponíveis:\n`
+
+    // Adicionar planos dinamicamente
+    plans.forEach(plan => {
+      const planPrice = plan.price === 0 ? 'Grátis' : `R$ ${plan.price.toFixed(2)}/mês`
+      const planDescription = plan.description || ''
+      message += `\n${plan.name} – ${planPrice}`
+      if (planDescription) {
+        message += ` – ${planDescription}`
+      }
+    })
+
+    message += `\n\n👉 Cadastre-se agora mesmo e comece a simplificar suas finanças!
+
+${signupUrl}`
+
+    console.log('📝 Mensagem promocional gerada:', message.length, 'caracteres')
+    return message
+
+  } catch (error) {
+    console.error('❌ Erro ao gerar mensagem promocional:', error)
+    // Fallback para mensagem estática caso falhe
+    return `Olá! 👋 Não encontramos seu cadastro no FinSplit.
+
+Para começar a usar o FinSplit é bem simples:
+
+🔗 Cadastre-se agora: ${process.env.NEXT_PUBLIC_APP_URL || 'https://finsplit.app'}/auth/signup
+
+🚀 Organize suas despesas, divida gastos e tenha controle total das suas finanças!
+
+👉 Cadastre-se agora mesmo e comece a simplificar suas finanças!`
+  }
+}
+
 async function sendWhatsAppMessage(to: string, body: string) {
   try {
     console.log('📱 Preparando envio de mensagem WhatsApp...')
@@ -644,7 +712,7 @@ async function sendWhatsAppMessage(to: string, body: string) {
     console.log('📱 Enviando mensagem WhatsApp:')
     console.log('  From:', formattedFrom)
     console.log('  To:', formattedTo)
-    console.log('  Body:', body)
+    console.log('  Body preview:', body.substring(0, 100) + '...')
     
     await twilioClient.messages.create({
       body,
