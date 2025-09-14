@@ -312,30 +312,20 @@ export default function WelcomeWizardPage() {
                   
                   <h3 className="text-xl font-semibold">Verifique seu WhatsApp! 📱</h3>
                   
-                  {session?.user?.phone ? (
-                    <div className="bg-green-50 p-6 rounded-lg">
-                      <p className="text-green-800 mb-4">
-                        ✅ Enviamos uma mensagem de boas-vindas para: <strong>{session.user.phone}</strong>
-                      </p>
-                      <p className="text-green-700">
-                        Agora você pode enviar recibos direto pelo WhatsApp e nossa IA vai organizar tudo automaticamente!
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="bg-yellow-50 p-6 rounded-lg">
-                      <p className="text-yellow-800 mb-4">
-                        ⚠️ Você não cadastrou um telefone. Para usar o WhatsApp:
-                      </p>
-                      <Link href="/dashboard/settings">
-                        <Button variant="outline" className="mb-4">
-                          Adicionar Telefone nas Configurações
-                        </Button>
-                      </Link>
-                      <p className="text-yellow-700 text-sm">
-                        Com o WhatsApp você pode enviar fotos de recibos e nossa IA extrai os dados automaticamente.
-                      </p>
-                    </div>
-                  )}
+                  <div className="bg-green-50 p-6 rounded-lg">
+                    <p className="text-green-800 mb-4">
+                      ✅ Se você cadastrou um telefone, enviamos uma mensagem de boas-vindas!
+                    </p>
+                    <p className="text-green-700">
+                      Agora você pode enviar recibos direto pelo WhatsApp e nossa IA vai organizar tudo automaticamente!
+                    </p>
+                  </div>
+
+                  <div className="bg-blue-50 p-4 rounded-lg mt-4">
+                    <p className="text-blue-800 text-sm">
+                      <strong>💡 Não recebeu a mensagem?</strong> Verifique se digitou o telefone correto nas configurações ou entre em contato conosco.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="bg-blue-50 p-4 rounded-lg">
