@@ -15,15 +15,15 @@ export function SiteHeader() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-3">
+            <Link href="/" className="flex items-center">
               <Image 
                 src="/logotipo.png" 
                 alt="FinSplit" 
-                width={40} 
+                width={120} 
                 height={40}
-                className="w-8 h-8 sm:w-10 sm:h-10"
+                className="h-8 w-auto sm:h-10"
+                priority
               />
-              <span className="text-xl sm:text-2xl font-bold text-primary-600">FinSplit</span>
             </Link>
           </div>
 

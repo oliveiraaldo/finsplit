@@ -18,15 +18,15 @@ export function SiteFooter() {
         <div className="py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Brand Section */}
           <div className="lg:col-span-1">
-            <Link href="/" className="flex items-center space-x-3 mb-4">
+            <Link href="/" className="flex items-center mb-4">
               <Image 
                 src="/logotipo.png" 
                 alt="FinSplit" 
-                width={32} 
+                width={100} 
                 height={32}
-                className="w-8 h-8"
+                className="h-8 w-auto"
+                priority
               />
-              <span className="text-xl font-bold text-primary-400">FinSplit</span>
             </Link>
             <p className="text-gray-400 mb-4 text-sm leading-relaxed">
               Controle de despesas em grupo simplificado e inteligente. 
