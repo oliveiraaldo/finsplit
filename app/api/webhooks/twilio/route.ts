@@ -340,35 +340,29 @@ async function handleReceiptUpload(from: string, mediaUrl: string, user: any, me
       `📅 Data: ${extractionResult.data.datas?.emissao || extractionResult.data.date || 'Não identificada'}\n` +
       `📄 Tipo: ${extractionResult.data.documento?.tipo || extractionResult.data.tipo_transacao || 'Recibo'}\n\n`
 
-    // Sempre mostrar grupos pré-definidos + opção de criar novo
-    message += `📋 Selecione o grupo de despesas:\n`
-    message += `1. Alimentação 🍽️\n`
-    message += `2. Transporte 🚗\n`
-    message += `3. Lazer 🎮\n`
-    message += `4. Moradia 🏠\n`
-    
+    // Mostrar grupos do usuário ou explicar conceito se não houver
     if (userGroups.length > 0) {
-      message += `5. Meus grupos:\n`
+      message += `📋 Selecione o grupo de despesas:\n`
       userGroups.forEach((group, index) => {
-        message += `   ${index + 6}. ${group.name}\n`
+        message += `${index + 1}. ${group.name}\n`
       })
+      message += `0. Criar novo grupo\n\n`
+      message += `Responda com o número do grupo ou "0" para novo grupo.`
+    } else {
+      message += `📋 Você ainda não tem grupos cadastrados!\n\n`
+      message += `💡 *O que são grupos?*\n`
+      message += `Grupos são centros de custo para organizar suas despesas:\n\n`
+      message += `🏢 *Empresa* - Despesas profissionais\n`
+      message += `✈️ *Viagem* - Gastos de viagens específicas\n`  
+      message += `🏠 *Casa* - Despesas domésticas\n`
+      message += `👨‍👩‍👧‍👦 *Família* - Gastos familiares\n`
+      message += `🎉 *Eventos* - Festa, casamento, aniversário\n\n`
+      message += `Digite *"criar grupo"* para cadastrar seu primeiro grupo.`
     }
     
-    message += `0. Criar novo grupo\n\n`
-    message += `Responda com o número do grupo ou "0" para novo grupo.`
-    
-    // Definir estado do usuário para aguardar seleção de grupo
-    const predefinedGroups = [
-      { id: 'alimentacao', name: 'Alimentação', description: 'Despesas com comida, restaurantes, mercado' },
-      { id: 'transporte', name: 'Transporte', description: 'Uber, táxi, combustível, passagens' },
-      { id: 'lazer', name: 'Lazer', description: 'Entretenimento, cinema, shows, viagens' },
-      { id: 'moradia', name: 'Moradia', description: 'Aluguel, contas, manutenção' }
-    ]
-    
+    // Definir estado do usuário para aguardar seleção de grupo ou criação
     await setUserState(user.id, { 
-      action: 'SELECTING_GROUP', 
-      groups: [...predefinedGroups, ...userGroups],
-      predefinedGroups: predefinedGroups,
+      action: userGroups.length > 0 ? 'SELECTING_GROUP' : 'NEEDS_GROUP_CREATION', 
       userGroups: userGroups,
       pendingExpenseData: {
         description: extractionResult.data.recebedor?.nome || extractionResult.data.estabelecimento?.nome,
@@ -407,6 +401,26 @@ async function handleTextMessage(from: string, body: string, user: any) {
   if (userState && userState.action === 'SELECTING_GROUP') {
     console.log('📋 Usuário selecionando grupo...')
     return await handleGroupSelection(from, text, user, userState)
+  }
+
+  if (userState && userState.action === 'NEEDS_GROUP_CREATION') {
+    console.log('🆕 Usuário precisa criar grupo...')
+    if (text.toLowerCase().includes('criar grupo')) {
+      return await handleCreateFirstGroup(from, user, userState)
+    } else {
+      await sendWhatsAppMessage(from, '💡 Para continuar com seu recibo, você precisa criar um grupo primeiro.\n\nDigite *"criar grupo"* para começar.')
+      return NextResponse.json({ message: 'Aguardando criação de grupo' })
+    }
+  }
+
+  if (userState && userState.action === 'CREATING_FIRST_GROUP') {
+    console.log('🏗️ Usuário criando primeiro grupo...')
+    return await handleGroupCreation(from, text, user, userState)
+  }
+
+  if (userState && userState.action === 'TYPING_GROUP_NAME') {
+    console.log('✍️ Usuário digitando nome personalizado...')
+    return await handleGroupCreation(from, text, user, userState)
   }
 
   if (text === 'sim' || text === 'yes' || text === 'confirmar') {
@@ -1331,50 +1345,17 @@ async function handleGroupSelection(from: string, text: string, user: any, userS
       // Atualizar estado do usuário para aguardar confirmação
       await setUserState(user.id, { action: 'WAITING_CONFIRMATION', groupId: newGroup.id })
       
-    } else if (selection > 0 && selection <= userState.groups.length) {
-      // Selecionar grupo (pré-definido ou personalizado)
-      const selectedGroup = userState.groups[selection - 1]
+    } else if (selection > 0 && selection <= userState.userGroups.length) {
+      // Selecionar grupo existente do usuário
+      const selectedGroup = userState.userGroups[selection - 1]
       
-      console.log('🎯 Grupo selecionado:', selectedGroup.name, 'ID:', selectedGroup.id)
-      
-      // Se for grupo pré-definido, criar ou encontrar o grupo real
-      let actualGroupId = selectedGroup.id
-      
-      if (selection <= 4) {
-        // Grupo pré-definido - criar se não existir
-        let actualGroup = await prisma.group.findFirst({
-          where: {
-            name: selectedGroup.name,
-            tenantId: user.tenantId
-          }
-        })
-        
-        if (!actualGroup) {
-          actualGroup = await prisma.group.create({
-            data: {
-              name: selectedGroup.name,
-              description: selectedGroup.description,
-              tenantId: user.tenantId,
-              members: {
-                create: {
-                  userId: user.id,
-                  role: 'ADMIN'
-                }
-              }
-            }
-          })
-          console.log('✅ Grupo pré-definido criado:', actualGroup.name)
-        }
-        
-        actualGroupId = actualGroup.id
-      }
       
       await sendWhatsAppMessage(from, `✅ Grupo selecionado: "${selectedGroup.name}"\n\nAgora responda "sim" para confirmar a despesa neste grupo.`)
       
       // Atualizar estado do usuário para aguardar confirmação
       const newState = { 
         action: 'WAITING_CONFIRMATION', 
-        groupId: actualGroupId,
+        groupId: selectedGroup.id,
         pendingExpenseData: userState.pendingExpenseData // Manter dados da despesa
       }
       
@@ -1384,7 +1365,7 @@ async function handleGroupSelection(from: string, text: string, user: any, userS
       console.log('✅ Estado atualizado, aguardando confirmação...')
       
     } else {
-      await sendWhatsAppMessage(from, `❌ Número inválido. Digite um número entre 1 e ${userState.groups.length}, ou "0" para novo grupo.`)
+      await sendWhatsAppMessage(from, `❌ Número inválido. Digite um número entre 1 e ${userState.userGroups.length}, ou "0" para novo grupo.`)
     }
 
     return NextResponse.json({ message: 'Seleção de grupo processada' })
@@ -1469,6 +1450,121 @@ async function getOrCreateDefaultGroup(tenantId: string, userId: string) {
   } catch (error) {
     console.error('❌ Erro ao criar/obter grupo padrão:', error)
     throw error
+  }
+}
+
+async function handleCreateFirstGroup(from: string, user: any, userState: any) {
+  try {
+    const message = `🏗️ *Vamos criar seu primeiro grupo!*
+
+💡 Escolha uma dessas opções ou crie um personalizado:
+
+1️⃣ *Empresa* - Despesas profissionais
+2️⃣ *Casa* - Gastos domésticos  
+3️⃣ *Viagem* - Despesas de viagem
+4️⃣ *Família* - Gastos familiares
+5️⃣ *Eventos* - Festa, casamento, aniversário
+
+0️⃣ *Personalizado* - Digite o nome do seu grupo
+
+Digite o número da opção ou o nome do grupo personalizado:`
+
+    await sendWhatsAppMessage(from, message)
+    
+    // Atualizar estado para aguardar nome do grupo
+    await setUserState(user.id, { 
+      action: 'CREATING_FIRST_GROUP', 
+      pendingExpenseData: userState.pendingExpenseData
+    })
+    
+    return NextResponse.json({ message: 'Solicitando nome do grupo' })
+    
+  } catch (error) {
+    console.error('❌ Erro ao solicitar criação de grupo:', error)
+    return NextResponse.json(
+      { message: 'Erro interno do servidor' },
+      { status: 500 }
+    )
+  }
+}
+
+async function handleGroupCreation(from: string, text: string, user: any, userState: any) {
+  try {
+    let groupName = ''
+    let groupDescription = ''
+    
+    // Mapear opções pré-definidas
+    switch (text) {
+      case '1':
+        groupName = 'Empresa'
+        groupDescription = 'Despesas profissionais e corporativas'
+        break
+      case '2':
+        groupName = 'Casa'
+        groupDescription = 'Gastos domésticos e residenciais'
+        break
+      case '3':
+        groupName = 'Viagem'
+        groupDescription = 'Despesas de viagens e turismo'
+        break
+      case '4':
+        groupName = 'Família'
+        groupDescription = 'Gastos familiares compartilhados'
+        break
+      case '5':
+        groupName = 'Eventos'
+        groupDescription = 'Despesas de festas e eventos especiais'
+        break
+      case '0':
+        await sendWhatsAppMessage(from, '✍️ Digite o nome do seu grupo personalizado:')
+        await setUserState(user.id, { 
+          action: 'TYPING_GROUP_NAME', 
+          pendingExpenseData: userState.pendingExpenseData
+        })
+        return NextResponse.json({ message: 'Aguardando nome personalizado' })
+      default:
+        // Usar o texto como nome personalizado
+        groupName = text.trim()
+        groupDescription = `Grupo criado via WhatsApp`
+    }
+    
+    // Criar o grupo
+    const newGroup = await prisma.group.create({
+      data: {
+        name: groupName,
+        description: groupDescription,
+        tenantId: user.tenantId,
+        members: {
+          create: {
+            userId: user.id,
+            role: 'ADMIN'
+          }
+        }
+      }
+    })
+    
+    await sendWhatsAppMessage(from, `✅ *Grupo "${newGroup.name}" criado com sucesso!*
+
+Agora você já pode usar esse grupo para organizar suas despesas.
+
+👍 Responda *"sim"* para confirmar e registrar seu recibo neste grupo.`)
+    
+    // Atualizar estado para aguardar confirmação
+    await setUserState(user.id, { 
+      action: 'WAITING_CONFIRMATION', 
+      groupId: newGroup.id,
+      pendingExpenseData: userState.pendingExpenseData
+    })
+    
+    return NextResponse.json({ message: 'Grupo criado com sucesso' })
+    
+  } catch (error) {
+    console.error('❌ Erro ao criar grupo:', error)
+    await sendWhatsAppMessage(from, '❌ Erro ao criar o grupo. Tente novamente.')
+    return NextResponse.json(
+      { message: 'Erro interno do servidor' },
+      { status: 500 }
+    )
   }
 }
 
