@@ -958,12 +958,12 @@ async function handleHelpCommand(from: string, user: any) {
 
 📱 *O que você pode fazer aqui:*
 
-🔄 *onboarding* → Refazer configuração guiada`
+🔄 *onboarding* - Refazer configuração guiada
 
-🔹 Envie um *recibo* (foto) → IA organiza automaticamente
-🔹 Digite *saldo* → veja seus débitos e créditos  
-🔹 Digite *grupos* → gerencie seus grupos
-🔹 Digite *lançamento* → registre despesa manual
+• Envie um *recibo* (foto) - IA organiza automaticamente
+• Digite *saldo* - veja seus débitos e créditos  
+• Digite *grupos* - gerencie seus grupos
+• Digite *lançamento* - registre despesa manual
 🔹 Digite *relatório* → resumo das suas finanças
 🔹 Digite *planos* → veja recursos disponíveis
 
