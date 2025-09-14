@@ -143,7 +143,20 @@ export async function DELETE(
         id: true,
         name: true,
         email: true,
-        role: true
+        role: true,
+        tenantId: true,
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            users: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        }
       }
     })
 
@@ -176,24 +189,54 @@ export async function DELETE(
       }
     }
 
-    // Excluir usuário (cascade irá cuidar das relações)
-    await prisma.user.delete({
-      where: { id: userId }
-    })
+    // Verificar se é o último usuário do tenant
+    const isLastUserInTenant = existingUser.tenant.users.length <= 1
+    
+    if (isLastUserInTenant) {
+      console.log(`🗂️ Usuário ${existingUser.name} é o último do tenant ${existingUser.tenant.name}. Deletando tenant também...`)
+      
+      // Se for o último usuário, deletar o tenant inteiro (CASCADE cuidará de tudo)
+      await prisma.tenant.delete({
+        where: { id: existingUser.tenantId }
+      })
 
-    // Log de auditoria
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        tenantId: session.user.tenantId,
-        action: 'DELETE_USER',
-        entity: 'User',
-        entityId: userId,
-        details: `Usuário excluído: ${existingUser.name} (${existingUser.email})`
-      }
-    })
+      // Log de auditoria para tenant deletado
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          tenantId: session.user.tenantId,
+          action: 'DELETE_TENANT',
+          entity: 'Tenant',
+          entityId: existingUser.tenantId,
+          details: `Tenant '${existingUser.tenant.name}' excluído automaticamente (último usuário '${existingUser.name}' foi removido)`
+        }
+      })
+      
+      return NextResponse.json({ 
+        message: `Usuário e tenant excluídos com sucesso (${existingUser.name} era o último usuário do tenant ${existingUser.tenant.name})` 
+      })
+    } else {
+      console.log(`👤 Deletando apenas usuário ${existingUser.name} (tenant ${existingUser.tenant.name} tem outros usuários)`)
+      
+      // Se não for o último usuário, deletar apenas o usuário
+      await prisma.user.delete({
+        where: { id: userId }
+      })
 
-    return NextResponse.json({ message: 'Usuário excluído com sucesso' })
+      // Log de auditoria para usuário deletado
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          tenantId: session.user.tenantId,
+          action: 'DELETE_USER',
+          entity: 'User',
+          entityId: userId,
+          details: `Usuário excluído: ${existingUser.name} (${existingUser.email}) - Tenant '${existingUser.tenant.name}' mantido`
+        }
+      })
+
+      return NextResponse.json({ message: 'Usuário excluído com sucesso' })
+    }
 
   } catch (error) {
     console.error('Erro ao excluir usuário:', error)
