@@ -86,7 +86,7 @@ export function CategoryModal({ category, isOpen, onClose, onSave, mode }: Categ
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md bg-white">
+      <DialogContent className="max-w-[95vw] sm:max-w-md bg-white">
         <DialogHeader>
           <DialogTitle>
             {mode === 'edit' ? 'Editar Categoria' : 'Nova Categoria'}

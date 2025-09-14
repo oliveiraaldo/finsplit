@@ -45,7 +45,7 @@ export function DeleteConfirmationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg bg-white rounded-2xl shadow-2xl border-0 p-0">
+      <DialogContent className="max-w-[95vw] sm:max-w-lg bg-white rounded-2xl shadow-2xl border-0 p-0">
         {/* Header */}
         <div className="relative p-6 pb-0">
           <button

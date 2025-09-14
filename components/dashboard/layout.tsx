@@ -63,6 +63,34 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               )
             })}
           </nav>
+          
+          {/* Mobile user section and logout */}
+          <div className="p-4 border-t border-gray-200">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+                <span className="text-sm font-medium text-primary-600">
+                  {session?.user.name?.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {session?.user.name}
+                </p>
+                <p className="text-xs text-gray-500 truncate">
+                  {session?.user.email}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={handleSignOut}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sair
+            </Button>
+          </div>
         </div>
       </div>
 
