@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal'
 import { toast } from 'sonner'
 import { 
   Users, 
@@ -42,6 +43,9 @@ export default function AdminUsers() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRole, setSelectedRole] = useState<string>('all')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -123,19 +127,25 @@ export default function AdminUsers() {
     }
   }
 
-  const handleDeleteUser = async (user: User) => {
-    if (!confirm(`Tem certeza que deseja excluir o usuário "${user.name}"?`)) {
-      return
-    }
+  const handleDeleteUser = (user: User) => {
+    setUserToDelete(user)
+    setIsDeleteModalOpen(true)
+  }
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return
 
     try {
-      const response = await fetch(`/api/admin/users/${user.id}`, {
+      setIsDeleting(true)
+      const response = await fetch(`/api/admin/users/${userToDelete.id}`, {
         method: 'DELETE'
       })
 
       if (response.ok) {
-        toast.success('Usuário excluído!')
+        toast.success('Usuário excluído com sucesso!')
         fetchUsers()
+        setIsDeleteModalOpen(false)
+        setUserToDelete(null)
       } else {
         const error = await response.json()
         toast.error(error.message || 'Erro ao excluir usuário')
@@ -143,6 +153,8 @@ export default function AdminUsers() {
     } catch (error) {
       console.error('Erro ao excluir usuário:', error)
       toast.error('Erro ao excluir usuário')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -409,6 +421,20 @@ export default function AdminUsers() {
             </div>
           </DialogContent>
         </Dialog>
+        {/* Delete Confirmation Modal */}
+        <DeleteConfirmationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false)
+            setUserToDelete(null)
+          }}
+          onConfirm={confirmDeleteUser}
+          title="Excluir Usuário"
+          description={`Você está prestes a excluir permanentemente o usuário "${userToDelete?.name}" e todos os seus dados relacionados.`}
+          itemName={userToDelete?.name || ''}
+          itemType="usuário"
+          isLoading={isDeleting}
+        />
       </div>
     </AdminLayout>
   )

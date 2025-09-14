@@ -144,15 +144,19 @@ export async function DELETE(
     // Verificar se tenant existe
     const existingTenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: {
-        id: true,
-        name: true,
-        _count: {
-          select: {
-            users: true,
-            groups: true
+      include: {
+        users: true,
+        groups: {
+          include: {
+            expenses: true,
+            members: true
           }
-        }
+        },
+        categories: true,
+        uploadedFiles: true,
+        auditLogs: true,
+        creditTransactions: true,
+        subscriptions: true
       }
     })
 
@@ -163,25 +167,84 @@ export async function DELETE(
       )
     }
 
-    // Não permitir excluir tenant com usuários
-    if (existingTenant._count.users > 0) {
-      return NextResponse.json(
-        { message: 'Não é possível excluir tenant com usuários ativos' },
-        { status: 400 }
-      )
-    }
+    console.log(`🗑️  Iniciando exclusão CASCADE do tenant: ${existingTenant.name}`)
 
-    // Não permitir excluir tenant com grupos
-    if (existingTenant._count.groups > 0) {
-      return NextResponse.json(
-        { message: 'Não é possível excluir tenant com grupos ativos' },
-        { status: 400 }
-      )
-    }
+    // Excluir tudo em transação para garantir consistência
+    await prisma.$transaction(async (tx) => {
+      // 1. Remover pagamentos relacionados às despesas dos grupos
+      for (const group of existingTenant.groups) {
+        if (group.expenses.length > 0) {
+          const expenseIds = group.expenses.map(e => e.id)
+          await tx.payment.deleteMany({
+            where: { expenseId: { in: expenseIds } }
+          })
+          console.log(`   ✅ Removidos pagamentos do grupo ${group.name}`)
+        }
+      }
 
-    // Excluir tenant
-    await prisma.tenant.delete({
-      where: { id: tenantId }
+      // 2. Remover despesas dos grupos
+      for (const group of existingTenant.groups) {
+        await tx.expense.deleteMany({
+          where: { groupId: group.id }
+        })
+        console.log(`   ✅ Removidas despesas do grupo ${group.name}`)
+      }
+
+      // 3. Remover membros dos grupos
+      for (const group of existingTenant.groups) {
+        await tx.groupMember.deleteMany({
+          where: { groupId: group.id }
+        })
+        console.log(`   ✅ Removidos membros do grupo ${group.name}`)
+      }
+
+      // 4. Remover grupos
+      await tx.group.deleteMany({
+        where: { tenantId: tenantId }
+      })
+      console.log(`   ✅ Removidos ${existingTenant.groups.length} grupos`)
+
+      // 5. Remover arquivos upload
+      await tx.uploadedFile.deleteMany({
+        where: { tenantId: tenantId }
+      })
+      console.log(`   ✅ Removidos ${existingTenant.uploadedFiles.length} arquivos`)
+
+      // 6. Remover transações de crédito
+      await tx.creditTransaction.deleteMany({
+        where: { tenantId: tenantId }
+      })
+      console.log(`   ✅ Removidas ${existingTenant.creditTransactions.length} transações de crédito`)
+
+      // 7. Remover assinaturas
+      await tx.subscription.deleteMany({
+        where: { tenantId: tenantId }
+      })
+      console.log(`   ✅ Removidas ${existingTenant.subscriptions.length} assinaturas`)
+
+      // 8. Remover logs de auditoria (opcional, pois pode ser importante manter histórico)
+      await tx.auditLog.deleteMany({
+        where: { tenantId: tenantId }
+      })
+      console.log(`   ✅ Removidos ${existingTenant.auditLogs.length} logs de auditoria`)
+
+      // 9. Remover categorias
+      await tx.category.deleteMany({
+        where: { tenantId: tenantId }
+      })
+      console.log(`   ✅ Removidas ${existingTenant.categories.length} categorias`)
+
+      // 10. Remover usuários
+      await tx.user.deleteMany({
+        where: { tenantId: tenantId }
+      })
+      console.log(`   ✅ Removidos ${existingTenant.users.length} usuários`)
+
+      // 11. Finalmente, remover o tenant
+      await tx.tenant.delete({
+        where: { id: tenantId }
+      })
+      console.log(`   ✅ Tenant ${existingTenant.name} removido completamente`)
     })
 
     // Log de auditoria

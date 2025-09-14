@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DeleteConfirmationModal } from '@/components/ui/delete-confirmation-modal'
 import { toast } from 'sonner'
 import { 
   Building2, 
@@ -65,6 +66,9 @@ export default function AdminTenants() {
   const [selectedPlan, setSelectedPlan] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -191,24 +195,25 @@ export default function AdminTenants() {
     }
   }
 
-  const handleDeleteTenant = async (tenant: Tenant) => {
-    if (tenant._count.users > 0) {
-      toast.error('Não é possível excluir tenant com usuários ativos')
-      return
-    }
+  const handleDeleteTenant = (tenant: Tenant) => {
+    setTenantToDelete(tenant)
+    setIsDeleteModalOpen(true)
+  }
 
-    if (!confirm(`Tem certeza que deseja excluir o tenant "${tenant.name}"?`)) {
-      return
-    }
+  const confirmDeleteTenant = async () => {
+    if (!tenantToDelete) return
 
     try {
-      const response = await fetch(`/api/admin/tenants/${tenant.id}`, {
+      setIsDeleting(true)
+      const response = await fetch(`/api/admin/tenants/${tenantToDelete.id}`, {
         method: 'DELETE'
       })
 
       if (response.ok) {
-        toast.success('Tenant excluído!')
+        toast.success('Tenant excluído com sucesso!')
         fetchTenants()
+        setIsDeleteModalOpen(false)
+        setTenantToDelete(null)
       } else {
         const error = await response.json()
         toast.error(error.message || 'Erro ao excluir tenant')
@@ -216,6 +221,8 @@ export default function AdminTenants() {
     } catch (error) {
       console.error('Erro ao excluir tenant:', error)
       toast.error('Erro ao excluir tenant')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -535,6 +542,21 @@ export default function AdminTenants() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Modal */}
+        <DeleteConfirmationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false)
+            setTenantToDelete(null)
+          }}
+          onConfirm={confirmDeleteTenant}
+          title="Excluir Tenant"
+          description={`Você está prestes a excluir permanentemente o tenant "${tenantToDelete?.name}" e todos os seus dados relacionados.`}
+          itemName={tenantToDelete?.name || ''}
+          itemType="tenant"
+          isLoading={isDeleting}
+        />
       </div>
     </AdminLayout>
   )
