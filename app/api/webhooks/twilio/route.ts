@@ -20,6 +20,14 @@ export async function POST(request: NextRequest) {
     const phone = from.replace('whatsapp:', '')
     console.log('📞 Telefone processado:', phone)
 
+    // Ignorar mensagens do próprio número Twilio (evita loop)
+    const twilioNumber = process.env.TWILIO_PHONE_NUMBER?.replace('whatsapp:', '').replace('+', '').replace(/\D/g, '')
+    const phoneDigitsOnly = phone.replace(/\D/g, '')
+    if (twilioNumber && phoneDigitsOnly === twilioNumber) {
+      console.log('⚠️ Mensagem do próprio número Twilio detectada - ignorando para evitar loop')
+      return NextResponse.json({ message: 'Mensagem do próprio Twilio ignorada' })
+    }
+
     // Buscar usuário pelo telefone
     console.log('🔍 Buscando usuário no banco de dados...')
     console.log('📞 Telefone formatado para busca:', phone)
@@ -805,6 +813,14 @@ async function sendWhatsAppMessage(to: string, body: string) {
     // Formatar número para WhatsApp
     const formattedFrom = `whatsapp:${process.env.TWILIO_PHONE_NUMBER}`
     const formattedTo = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`
+    
+    // Validar que não está tentando enviar para o próprio número (evita erro 63031)
+    if (formattedFrom === formattedTo) {
+      console.error('⚠️ ERRO: Tentativa de enviar mensagem para o próprio número Twilio bloqueada')
+      console.error('  From:', formattedFrom)
+      console.error('  To:', formattedTo)
+      return // Retorna silenciosamente sem tentar enviar
+    }
     
     console.log('📱 Enviando mensagem WhatsApp:')
     console.log('  From:', formattedFrom)
