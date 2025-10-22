@@ -37,13 +37,35 @@ export async function POST(request: NextRequest) {
       const phoneDigits = phone.replace(/\D/g, '')
       console.log('🔢 Dígitos extraídos:', phoneDigits)
       
-      // Estratégia 2: Buscar com diferentes formatos possíveis
+      // Estratégia 2: Normalização para números brasileiros (adicionar nono dígito se necessário)
+      let brazilianVariants: string[] = []
+      if (phoneDigits.startsWith('55') && phoneDigits.length >= 12) {
+        const ddd = phoneDigits.substring(2, 4) // Extrai o DDD (2 dígitos após 55)
+        const resto = phoneDigits.substring(4) // O resto do número
+        
+        // Se o número após o DDD não começa com 9 e tem 8 dígitos, adicionar o 9
+        if (!resto.startsWith('9') && resto.length === 8) {
+          const withNinthDigit = `+55${ddd}9${resto}`
+          brazilianVariants.push(withNinthDigit)
+          console.log('📱 Variante brasileira com 9º dígito:', withNinthDigit)
+        }
+        
+        // Se já tem 9 no início mas queremos testar sem ele também
+        if (resto.startsWith('9') && resto.length === 9) {
+          const withoutNinthDigit = `+55${ddd}${resto.substring(1)}`
+          brazilianVariants.push(withoutNinthDigit)
+          console.log('📱 Variante brasileira sem 9º dígito:', withoutNinthDigit)
+        }
+      }
+      
+      // Estratégia 3: Buscar com diferentes formatos possíveis
       const searchFormats = [
         phone, // Formato original
         `+${phoneDigits}`, // Com + na frente
         phoneDigits, // Só números
         phoneDigits.slice(-11), // Últimos 11 dígitos
         `+55${phoneDigits.slice(-11)}`, // Brasil específico
+        ...brazilianVariants // Variantes brasileiras com/sem nono dígito
       ]
       
       console.log('📱 Formatos de busca:', searchFormats)
