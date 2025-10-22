@@ -47,22 +47,25 @@ export async function POST(request: NextRequest) {
       
       // Estratégia 2: Normalização para números brasileiros (adicionar nono dígito se necessário)
       let brazilianVariants: string[] = []
-      if (phoneDigits.startsWith('55') && phoneDigits.length >= 12) {
+      if (phoneDigits.startsWith('55')) {
         const ddd = phoneDigits.substring(2, 4) // Extrai o DDD (2 dígitos após 55)
         const resto = phoneDigits.substring(4) // O resto do número
         
-        // Se o número após o DDD não começa com 9 e tem 8 dígitos, adicionar o 9
-        if (!resto.startsWith('9') && resto.length === 8) {
+        console.log('🇧🇷 Número brasileiro detectado - DDD:', ddd, '| Resto:', resto, `(${resto.length} dígitos)`)
+        
+        // Celulares brasileiros devem ter 9 dígitos após o DDD
+        // Se tem 8 dígitos, falta o nono dígito obrigatório
+        if (resto.length === 8) {
           const withNinthDigit = `+55${ddd}9${resto}`
           brazilianVariants.push(withNinthDigit)
-          console.log('📱 Variante brasileira com 9º dígito:', withNinthDigit)
+          console.log('📱 Variante com 9º dígito adicionado:', withNinthDigit)
         }
         
-        // Se já tem 9 no início mas queremos testar sem ele também
-        if (resto.startsWith('9') && resto.length === 9) {
+        // Se tem 9 dígitos, pode tentar remover o primeiro (caso seja o 9º dígito)
+        if (resto.length === 9 && resto.startsWith('9')) {
           const withoutNinthDigit = `+55${ddd}${resto.substring(1)}`
           brazilianVariants.push(withoutNinthDigit)
-          console.log('📱 Variante brasileira sem 9º dígito:', withoutNinthDigit)
+          console.log('📱 Variante sem 9º dígito (teste):', withoutNinthDigit)
         }
       }
       
